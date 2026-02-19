@@ -1,6 +1,5 @@
 (function() {
-    // ========== CONFIGURACIÓN DE FIREBASE (AGREGADO) ==========
-    // Your web app's Firebase configuration
+    // ========== CONFIGURACIÓN DE FIREBASE ==========
     const firebaseConfig = {
         apiKey: "AIzaSyAFLH5cuIiQ5UVuGW22deUp-nUoxATrXR8",
         authDomain: "mi-app-repcontver.firebaseapp.com",
@@ -11,7 +10,7 @@
         measurementId: "G-W4JDBQJSD5"
     };
 
-    // Inicializar Firebase (solo si no está ya inicializado)
+    // Inicializar Firebase
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
     }
@@ -40,7 +39,8 @@
         { nombre: 'Terminación Visto Bueno', desc: 'Terminación de relación laboral vía visto bueno' }
     ];
 
-    let historial = JSON.parse(localStorage.getItem('repcontver_historial')) || [];
+    // EL HISTORIAL AHORA SE INICIA VACÍO - VIENE DE FIREBASE
+    let historial = [];
 
     const articulos = [
         { ref: 'Art. 58 Lit.20', desc: 'Sostener altercados verbales GRAVE y físicos MUY GRAVE con compañeros, trabajadores y jefes superiores dentro de las instalaciones de la empresa y su entorno, así como también hacer escandalo dentro de la empresa.', gravedad: 'GRAVE / MUY GRAVE' },
@@ -70,9 +70,53 @@
         if (el) el.innerText = generarCodigo();
     }
 
-    function guardarHistorial() {
-        localStorage.setItem('repcontver_historial', JSON.stringify(historial));
-        renderHistorial();
+    // ===== FUNCIÓN PARA ESCUCHAR CAMBIOS EN FIREBASE (CORAZÓN DE LA APP) =====
+    function escucharFirebase() {
+        db.collection("llamados")
+          .orderBy("fecha", "desc")
+          .onSnapshot((querySnapshot) => {
+              console.log("🔥 Datos recibidos de Firebase:", querySnapshot.size, "documentos");
+              
+              // Limpiar historial y cargar TODO desde Firebase
+              historial = [];
+              
+              querySnapshot.forEach((doc) => {
+                  const data = doc.data();
+                  historial.push({
+                      id: doc.id,
+                      codigo: data.codigo || 'SIN CÓDIGO',
+                      fecha: data.fecha || new Date().toISOString(),
+                      trabajador: data.trabajador || 'SIN NOMBRE',
+                      cedula: data.cedula || 'SIN CÉDULA',
+                      supervisor: data.supervisor || 'SIN SUPERVISOR',
+                      cargo: data.cargo || 'SIN CARGO',
+                      sancion: data.sancion || 'SIN SANCIÓN',
+                      articulo: data.articulo || 'SIN ARTÍCULO',
+                      motivo: data.motivo || 'SIN MOTIVO',
+                      pdfBase64: data.pdfBase64 || null
+                  });
+              });
+              
+              console.log("📊 Historial actualizado:", historial.length, "registros");
+              renderHistorial();
+              
+          }, (error) => {
+              console.error("❌ Error de Firebase:", error);
+              alert("Error conectando con Firebase. Los datos no se sincronizarán.");
+          });
+    }
+
+    // ===== FUNCIÓN PARA GUARDAR EN FIREBASE =====
+    async function guardarEnFirebase(nuevoLlamado) {
+        try {
+            const docRef = await db.collection("llamados").add(nuevoLlamado);
+            console.log("✅ Guardado en Firebase con ID:", docRef.id);
+            return true;
+        } catch (error) {
+            console.error("❌ Error guardando en Firebase:", error);
+            alert("Error al guardar en la nube. El llamado solo estará disponible localmente por ahora.");
+            return false;
+        }
     }
 
     function renderHistorial() {
@@ -85,7 +129,7 @@
         const filtro = searchInput ? searchInput.value.toLowerCase() : '';
         
         if (statsEl) {
-            statsEl.innerHTML = `Total: ${historial.length} llamados guardados`;
+            statsEl.innerHTML = `Total: ${historial.length} llamados (sincronizados)`;
         }
 
         container.innerHTML = '';
@@ -96,30 +140,27 @@
         }
         
         const historialFiltrado = historial.filter(item => {
-            return item.trabajador.toLowerCase().includes(filtro) || 
-                   item.codigo.toLowerCase().includes(filtro) ||
-                   item.articulo.toLowerCase().includes(filtro);
+            return (item.trabajador?.toLowerCase().includes(filtro) || 
+                   item.codigo?.toLowerCase().includes(filtro) ||
+                   item.articulo?.toLowerCase().includes(filtro));
         });
         
-        [...historialFiltrado].reverse().forEach((item, index) => {
+        historialFiltrado.forEach((item) => {
             const div = document.createElement('div');
             div.className = 'historial-item';
             
-            const fecha = new Date(item.fecha);
+            const fecha = item.fecha ? new Date(item.fecha) : new Date();
             const fechaStr = fecha.toLocaleDateString('es-EC');
             
             div.innerHTML = `
                 <div class="historial-info">
-                    <span class="historial-fecha">${fechaStr} | ${item.codigo}</span>
-                    <span class="historial-nombre">${item.trabajador}</span>
-                    <span class="historial-articulo">${item.articulo}</span>
+                    <span class="historial-fecha">${fechaStr} | ${item.codigo || 'S/C'}</span>
+                    <span class="historial-nombre">${item.trabajador || 'S/N'}</span>
+                    <span class="historial-articulo">${item.articulo || 'S/A'}</span>
                 </div>
                 <div>
                     <button class="view-historial" data-index="${historial.indexOf(item)}" title="Ver PDF">
                         <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="delete-historial" data-index="${historial.indexOf(item)}" title="Eliminar">
-                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             `;
@@ -138,19 +179,9 @@
                 }
             });
         });
-
-        document.querySelectorAll('.delete-historial').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const index = btn.dataset.index;
-                if (confirm('¿Eliminar este llamado del historial?')) {
-                    historial.splice(index, 1);
-                    guardarHistorial();
-                }
-            });
-        });
     }
 
+    // ========== FUNCIONES DE RENDERIZADO (TUS ORIGINALES) ==========
     function renderNomina() {
         const container = document.getElementById('nominaListContainer');
         if (!container) return;
@@ -333,57 +364,6 @@
         const articuloSpan = document.getElementById('selectedArticuloText');
         if (articuloSpan) {
             articuloSpan.innerText = selectedArticulo ? `${selectedArticulo.ref}: ${selectedArticulo.desc.substring(0, 50)}...` : 'Selecciona un artículo';
-        }
-    }
-
-    // ===== NUEVA FUNCIÓN: Escuchar cambios en Firebase en TIEMPO REAL =====
-    function escucharFirebaseEnTiempoReal() {
-        db.collection("llamados")
-          .orderBy("fecha", "desc")
-          .onSnapshot((querySnapshot) => {
-              console.log("🔥 Datos actualizados desde Firebase!");
-              
-              // Convertir los datos de Firebase a un array
-              const firebaseData = [];
-              querySnapshot.forEach((doc) => {
-                  firebaseData.push({
-                      id: doc.id,
-                      ...doc.data()
-                  });
-              });
-              
-              // Fusionar con el historial local SIN perder los locales
-              // Primero, crear un Set con los códigos existentes
-              const codigosExistentes = new Set(historial.map(item => item.codigo));
-              
-              // Agregar solo los que no existen
-              firebaseData.forEach(item => {
-                  if (!codigosExistentes.has(item.codigo)) {
-                      historial.push(item);
-                      codigosExistentes.add(item.codigo);
-                  }
-              });
-              
-              // Ordenar por fecha (más reciente primero)
-              historial.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-              
-              // Guardar en localStorage y renderizar
-              localStorage.setItem('repcontver_historial', JSON.stringify(historial));
-              renderHistorial();
-              
-          }, (error) => {
-              console.log("Error escuchando Firebase:", error);
-          });
-    }
-
-    // ===== FUNCIÓN PARA GUARDAR EN FIREBASE =====
-    async function guardarEnFirebase(nuevoLlamado) {
-        try {
-            await db.collection("llamados").add(nuevoLlamado);
-            console.log("✅ Guardado en Firebase exitosamente");
-        } catch (error) {
-            console.log("❌ Error guardando en Firebase:", error);
-            alert("Error al guardar en la nube. El llamado solo estará disponible localmente.");
         }
     }
 
@@ -614,11 +594,7 @@
                 pdfBase64: pdfBase64
             };
             
-            // Guardar localmente
-            historial.push(nuevoLlamado);
-            guardarHistorial();
-            
-            // Guardar en Firebase
+            // Guardar en Firebase (NO guardamos en localStorage)
             guardarEnFirebase(nuevoLlamado);
         }
 
@@ -694,8 +670,8 @@
         actualizarCodigo();
         updateDisplay();
         
-        // ===== NUEVO: Escuchar cambios en Firebase en tiempo real =====
-        escucharFirebaseEnTiempoReal();
+        // ===== INICIAR ESCUCHA DE FIREBASE =====
+        escucharFirebase();
 
         document.getElementById('btnAgregarNomina')?.addEventListener('click', () => {
             const nombre = document.getElementById('newNombre')?.value.trim();
@@ -776,8 +752,10 @@
 
         document.getElementById('clearHistorialBtn')?.addEventListener('click', () => {
             if (confirm('¿Está seguro de eliminar TODO el historial?')) {
+                // Esto solo limpia local, pero Firebase mantiene los datos
                 historial = [];
-                guardarHistorial();
+                renderHistorial();
+                alert('Nota: Esto solo limpia la vista local. Los datos en la nube permanecen.');
             }
         });
     });
