@@ -117,16 +117,19 @@
         }
     }
 
-// ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (CORREGIDA) =====
+// ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (CREDENCIALES ACTUALIZADAS) =====
 function enviarNotificacionEmail(datosLlamado) {
-    // Mostrar mensaje en consola
-    console.log("Intentando enviar email...");
+    console.log("📧 Intentando enviar email con nuevas credenciales...");
     
     try {
-        // Configuración de EmailJS
-        const serviceID = "service_y9oxf6e";
-        const templateID = "template_wxv2z5p";
-        const userID = "FmZpk2vgPZehbp3qB";
+        // Configuración de EmailJS con tus NUEVAS credenciales
+        const serviceID = "service_y9oxf6e";      // ✅ NUEVO Service ID
+        const templateID = "template_wxv2z5p";     // ✅ Template ID (se mantiene)
+        const publicKey = "FmZpk2vgPZehbp3qB";     // ✅ NUEVO Public Key
+        
+        console.log("🔑 Service ID:", serviceID);
+        console.log("🔑 Template ID:", templateID);
+        console.log("🔑 Public Key:", publicKey);
         
         // Formatear fecha
         const fechaObj = new Date(datosLlamado.fecha);
@@ -138,7 +141,7 @@ function enviarNotificacionEmail(datosLlamado) {
             minute: '2-digit'
         });
         
-        // Preparar parámetros
+        // Preparar parámetros para la plantilla
         const templateParams = {
             to_email: "cpacheco@repcontver.com",
             from_name: "Sistema BASC - REPCONTVER",
@@ -154,21 +157,25 @@ function enviarNotificacionEmail(datosLlamado) {
             reply_to: "no-reply@repcontver.com"
         };
         
-        // Inicializar EmailJS y enviar
-        emailjs.init(userID);
+        console.log("📦 Parámetros enviados:", templateParams);
         
+        // Inicializar EmailJS con tu nuevo Public Key
+        emailjs.init(publicKey);
+        
+        // Enviar email
         emailjs.send(serviceID, templateID, templateParams)
             .then(function(response) {
-                console.log("✅ Email enviado correctamente", response);
+                console.log("✅✅✅ EMAIL ENVIADO CORRECTAMENTE!", response);
+                console.log("Status:", response.status);
+                console.log("Text:", response.text);
             })
             .catch(function(error) {
-                console.error("❌ Error de EmailJS:", error);
-                // No mostramos alerta para no interrumpir al usuario
+                console.error("❌❌❌ ERROR DE EMAILJS:", error);
+                console.error("Detalles:", JSON.stringify(error));
             });
             
     } catch (error) {
         console.error("❌ Error en función de email:", error);
-        // Silenciamos el error para no molestar al usuario
     }
 }
 
@@ -814,6 +821,7 @@ function enviarNotificacionEmail(datosLlamado) {
         });
     });
 })();
+
 
 
 
