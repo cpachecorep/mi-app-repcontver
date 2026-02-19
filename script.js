@@ -117,15 +117,16 @@
         }
     }
 
-   // ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (CON TEMPLATE ID CORREGIDO) =====
+// ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (CORREGIDA) =====
 function enviarNotificacionEmail(datosLlamado) {
+    // Mostrar mensaje en consola
+    console.log("Intentando enviar email...");
+    
     try {
-        console.log("📧 Iniciando envío de email...");
-        console.log("📋 Datos del llamado:", datosLlamado);
-        
-        // Inicializar EmailJS con tu Public Key
-        emailjs.init("esZaPMn1vF6l4ZgXj");
-        console.log("✅ EmailJS inicializado");
+        // Configuración de EmailJS
+        const serviceID = "service_y9oxf6e";
+        const templateID = "template_wxv2z5p";
+        const userID = "FmZpk2vgPZehbp3qB";
         
         // Formatear fecha
         const fechaObj = new Date(datosLlamado.fecha);
@@ -136,11 +137,11 @@ function enviarNotificacionEmail(datosLlamado) {
             hour: '2-digit', 
             minute: '2-digit'
         });
-        console.log("📅 Fecha formateada:", fechaFormateada);
         
-        // Parámetros para la plantilla
+        // Preparar parámetros
         const templateParams = {
             to_email: "cpacheco@repcontver.com",
+            from_name: "Sistema BASC - REPCONTVER",
             codigo: datosLlamado.codigo,
             fecha: fechaFormateada,
             supervisor: datosLlamado.supervisor,
@@ -149,26 +150,25 @@ function enviarNotificacionEmail(datosLlamado) {
             cedula: datosLlamado.cedula,
             articulo: datosLlamado.articulo,
             sancion: datosLlamado.sancion,
-            motivo: datosLlamado.motivo
+            motivo: datosLlamado.motivo,
+            reply_to: "no-reply@repcontver.com"
         };
-        console.log("📦 Parámetros de plantilla:", templateParams);
         
-        // Enviar email con el Template ID correcto
-        emailjs.send(
-            "service_igfjn89",    // Service ID
-            "template_wxv2z5p",   // Template ID CORREGIDO
-            templateParams
-        ).then(function(response) {
-            console.log("✅✅✅ EMAIL ENVIADO EXITOSAMENTE!", response);
-            console.log("Status:", response.status);
-            console.log("Text:", response.text);
-        }, function(error) {
-            console.error("❌❌❌ ERROR ENVIANDO EMAIL:", error);
-            console.error("Detalles del error:", JSON.stringify(error));
-        });
+        // Inicializar EmailJS y enviar
+        emailjs.init(userID);
         
+        emailjs.send(serviceID, templateID, templateParams)
+            .then(function(response) {
+                console.log("✅ Email enviado correctamente", response);
+            })
+            .catch(function(error) {
+                console.error("❌ Error de EmailJS:", error);
+                // No mostramos alerta para no interrumpir al usuario
+            });
+            
     } catch (error) {
-        console.error("❌ Error en la función enviarNotificacionEmail:", error);
+        console.error("❌ Error en función de email:", error);
+        // Silenciamos el error para no molestar al usuario
     }
 }
 
@@ -814,6 +814,7 @@ function enviarNotificacionEmail(datosLlamado) {
         });
     });
 })();
+
 
 
 
