@@ -39,7 +39,6 @@
         { nombre: 'Terminación Visto Bueno', desc: 'Terminación de relación laboral vía visto bueno' }
     ];
 
-    // EL HISTORIAL AHORA SE INICIA VACÍO - VIENE DE FIREBASE
     let historial = [];
 
     const articulos = [
@@ -70,14 +69,13 @@
         if (el) el.innerText = generarCodigo();
     }
 
-    // ===== FUNCIÓN PARA ESCUCHAR CAMBIOS EN FIREBASE (CORAZÓN DE LA APP) =====
+    // ===== FUNCIÓN PARA ESCUCHAR CAMBIOS EN FIREBASE =====
     function escucharFirebase() {
         db.collection("llamados")
           .orderBy("fecha", "desc")
           .onSnapshot((querySnapshot) => {
               console.log("🔥 Datos recibidos de Firebase:", querySnapshot.size, "documentos");
               
-              // Limpiar historial y cargar TODO desde Firebase
               historial = [];
               
               querySnapshot.forEach((doc) => {
@@ -114,8 +112,54 @@
             return true;
         } catch (error) {
             console.error("❌ Error guardando en Firebase:", error);
-            alert("Error al guardar en la nube. El llamado solo estará disponible localmente por ahora.");
+            alert("Error al guardar en la nube. El llamado solo estará disponible localmente.");
             return false;
+        }
+    }
+
+    // ===== NUEVA FUNCIÓN: ENVIAR NOTIFICACIÓN POR EMAIL (EMAILJS) =====
+    function enviarNotificacionEmail(datosLlamado) {
+        try {
+            // Inicializar EmailJS con tu Public Key
+            emailjs.init("esZaPMn1vF6l4ZgXj");
+            
+            // Formatear fecha
+            const fechaObj = new Date(datosLlamado.fecha);
+            const fechaFormateada = fechaObj.toLocaleDateString('es-EC', {
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric',
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+            
+            // Parámetros para la plantilla
+            const templateParams = {
+                to_email: "cpacheco@repcontver.com",
+                codigo: datosLlamado.codigo,
+                fecha: fechaFormateada,
+                supervisor: datosLlamado.supervisor,
+                cargo: datosLlamado.cargo,
+                trabajador: datosLlamado.trabajador,
+                cedula: datosLlamado.cedula,
+                articulo: datosLlamado.articulo,
+                sancion: datosLlamado.sancion,
+                motivo: datosLlamado.motivo
+            };
+            
+            // Enviar email
+            emailjs.send(
+                "service_igfjn89",    // Service ID
+                "template_zwj81v9",   // Template ID
+                templateParams
+            ).then(function(response) {
+                console.log("✅ Email enviado exitosamente!", response);
+            }, function(error) {
+                console.error("❌ Error enviando email:", error);
+            });
+            
+        } catch (error) {
+            console.error("❌ Error al enviar notificación:", error);
         }
     }
 
@@ -181,7 +225,6 @@
         });
     }
 
-    // ========== FUNCIONES DE RENDERIZADO (TUS ORIGINALES) ==========
     function renderNomina() {
         const container = document.getElementById('nominaListContainer');
         if (!container) return;
@@ -594,8 +637,11 @@
                 pdfBase64: pdfBase64
             };
             
-            // Guardar en Firebase (NO guardamos en localStorage)
+            // Guardar en Firebase
             guardarEnFirebase(nuevoLlamado);
+            
+            // ===== NUEVO: ENVIAR NOTIFICACIÓN EMAIL =====
+            enviarNotificacionEmail(nuevoLlamado);
         }
 
         doc.save(`llamado_atencion_${selectedWorker.cedula}_${codigo}.pdf`);
@@ -752,7 +798,6 @@
 
         document.getElementById('clearHistorialBtn')?.addEventListener('click', () => {
             if (confirm('¿Está seguro de eliminar TODO el historial?')) {
-                // Esto solo limpia local, pero Firebase mantiene los datos
                 historial = [];
                 renderHistorial();
                 alert('Nota: Esto solo limpia la vista local. Los datos en la nube permanecen.');
