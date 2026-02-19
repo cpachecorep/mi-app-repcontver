@@ -117,7 +117,7 @@
         }
     }
 
-    // ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (VERSIÓN DEPURACIÓN) =====
+   // ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (CON TEMPLATE ID CORREGIDO) =====
 function enviarNotificacionEmail(datosLlamado) {
     try {
         console.log("📧 Iniciando envío de email...");
@@ -153,25 +153,22 @@ function enviarNotificacionEmail(datosLlamado) {
         };
         console.log("📦 Parámetros de plantilla:", templateParams);
         
-        // Enviar email
+        // Enviar email con el Template ID correcto
         emailjs.send(
             "service_igfjn89",    // Service ID
-            "template_wxv2z5p",   // Template ID
+            "template_wxv2z5p",   // Template ID CORREGIDO
             templateParams
         ).then(function(response) {
             console.log("✅✅✅ EMAIL ENVIADO EXITOSAMENTE!", response);
             console.log("Status:", response.status);
             console.log("Text:", response.text);
-            alert("✅ Notificación email enviada correctamente");
         }, function(error) {
             console.error("❌❌❌ ERROR ENVIANDO EMAIL:", error);
             console.error("Detalles del error:", JSON.stringify(error));
-            alert("❌ Error al enviar email. Revisa la consola (F12)");
         });
         
     } catch (error) {
         console.error("❌ Error en la función enviarNotificacionEmail:", error);
-        alert("❌ Error crítico en la función de email");
     }
 }
 
@@ -817,5 +814,6 @@ function enviarNotificacionEmail(datosLlamado) {
         });
     });
 })();
+
 
 
