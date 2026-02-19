@@ -6,6 +6,9 @@
     <title>REPCONTVER · Sistema de Llamados de Atención</title>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Firebase SDK (AGREGADO) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <style>
         * {
             margin: 0;
@@ -23,9 +26,6 @@
             max-width: 1800px;
             margin: 0 auto;
         }
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
         /* Header */
         .header {
@@ -568,16 +568,19 @@
             <div class="historial-stats" id="historialStats">Total: 0 llamados</div>
             <input type="text" id="buscarHistorial" class="search-box" placeholder="Buscar en historial...">
             <div class="historial-list" id="historialContainer"></div>
-            <div style="display: flex; gap: 10px; <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-    <button class="btn-secondary" id="exportHistorialBtn" style="flex: 1;">
-        <i class="fas fa-download"></i> JSON
-    </button>
-    <button class="btn-secondary" id="exportExcelBtn" style="flex: 1; background: #28a745; color: white; border-color: #28a745;">
-        <i class="fas fa-file-excel"></i> EXCEL
-    </button>
-    <button class="btn-secondary" id="clearHistorialBtn" style="flex: 1;">
-        <i class="fas fa-trash"></i> Limpiar
-    </button>
+            <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                <button class="btn-secondary" id="exportHistorialBtn" style="flex: 1;">
+                    <i class="fas fa-download"></i> JSON
+                </button>
+                <button class="btn-secondary" id="exportExcelBtn" style="flex: 1; background: #28a745; color: white; border-color: #28a745;">
+                    <i class="fas fa-file-excel"></i> EXCEL
+                </button>
+                <button class="btn-secondary" id="clearHistorialBtn" style="flex: 1;">
+                    <i class="fas fa-trash"></i> Limpiar
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- SCRIPTS -->
@@ -586,4 +589,3 @@
 <script src="script.js"></script>
 </body>
 </html>
-
