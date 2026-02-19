@@ -156,7 +156,7 @@ function enviarNotificacionEmail(datosLlamado) {
         // Enviar email
         emailjs.send(
             "service_igfjn89",    // Service ID
-            "template_zwj81v9",   // Template ID
+            "template_wxv2z5p",   // Template ID
             templateParams
         ).then(function(response) {
             console.log("✅✅✅ EMAIL ENVIADO EXITOSAMENTE!", response);
@@ -817,4 +817,5 @@ function enviarNotificacionEmail(datosLlamado) {
         });
     });
 })();
+
 
