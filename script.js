@@ -1,19 +1,23 @@
 (function() {
-    // ===== CONFIGURACIÓN DE FIREBASE (CAMBIA ESTO CON TUS DATOS) =====
+    // ========== CONFIGURACIÓN DE FIREBASE (AGREGADO) ==========
+    // Your web app's Firebase configuration
     const firebaseConfig = {
-        apiKey: "AIzaSyAFLH5cuIiQ5UVuGW22deUp-nUoxATrXR8", // ← PON TU API KEY AQUÍ
-        authDomain: "mi-app-repcontver.firebaseapp.com", // ← TU DOMINIO
-        projectId: "mi-app-repcontver", // ← TU PROJECT ID
-        storageBucket: "mi-app-repcontver.firebasestorage.app", // ← TU STORAGE
-        messagingSenderId: "210095808109", // ← TU SENDER ID
-        appId: "1:210095808109:web:f79a854b4c19da022e2964" // ← TU APP ID
+        apiKey: "AIzaSyAFLH5cuIiQ5UVuGW22deUp-nUoxATrXR8",
+        authDomain: "mi-app-repcontver.firebaseapp.com",
+        projectId: "mi-app-repcontver",
+        storageBucket: "mi-app-repcontver.firebasestorage.app",
+        messagingSenderId: "210095808109",
+        appId: "1:210095808109:web:f79a854b4c19da022e2964",
+        measurementId: "G-W4JDBQJSD5"
     };
 
-    // Inicializar Firebase
-    firebase.initializeApp(firebaseConfig);
+    // Inicializar Firebase (solo si no está ya inicializado)
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
     const db = firebase.firestore();
 
-    // ========== DATOS INICIALES ==========
+    // ========== DATOS INICIALES (TODO IGUAL) ==========
     let nomina = JSON.parse(localStorage.getItem('repcontver_nomina')) || [
         { nombre: 'SEMINARIO RICARDO EDGAR', cedula: '0921451191' },
         { nombre: 'LOPEZ TOMALÁ OSCAR EDUARDO', cedula: '0951983519' },
@@ -36,7 +40,7 @@
         { nombre: 'Terminación Visto Bueno', desc: 'Terminación de relación laboral vía visto bueno' }
     ];
 
-    let historial = []; // Ya no usamos localStorage para historial
+    let historial = JSON.parse(localStorage.getItem('repcontver_historial')) || [];
 
     const articulos = [
         { ref: 'Art. 58 Lit.20', desc: 'Sostener altercados verbales GRAVE y físicos MUY GRAVE con compañeros, trabajadores y jefes superiores dentro de las instalaciones de la empresa y su entorno, así como también hacer escandalo dentro de la empresa.', gravedad: 'GRAVE / MUY GRAVE' },
@@ -55,7 +59,49 @@
     let selectedSancion = null;
     let selectedArticulo = null;
 
-    // ========== FUNCIONES ==========
+    // ========== FUNCIONES NUEVAS DE FIREBASE ==========
+    
+    // Función para cargar historial desde Firebase al iniciar
+    async function cargarHistorialDesdeFirebase() {
+        try {
+            const querySnapshot = await db.collection("llamados")
+                .orderBy("fecha", "desc")
+                .get();
+            
+            const firebaseHistorial = [];
+            querySnapshot.forEach((doc) => {
+                firebaseHistorial.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            
+            // Fusionar con el historial local (evitar duplicados)
+            const nuevos = firebaseHistorial.filter(item => 
+                !historial.some(local => local.codigo === item.codigo)
+            );
+            
+            if (nuevos.length > 0) {
+                historial = [...historial, ...nuevos];
+                localStorage.setItem('repcontver_historial', JSON.stringify(historial));
+                renderHistorial();
+            }
+        } catch (error) {
+            console.log("Error cargando desde Firebase:", error);
+        }
+    }
+
+    // Función para guardar en Firebase
+    async function guardarEnFirebase(nuevoLlamado) {
+        try {
+            await db.collection("llamados").add(nuevoLlamado);
+            console.log("Guardado en Firebase exitosamente");
+        } catch (error) {
+            console.log("Error guardando en Firebase:", error);
+        }
+    }
+
+    // ========== TUS FUNCIONES ORIGINALES (SIN CAMBIOS) ==========
     function generarCodigo() {
         const d = new Date();
         return `REP-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${Math.floor(Math.random()*900+100)}`;
@@ -66,33 +112,9 @@
         if (el) el.innerText = generarCodigo();
     }
 
-    // ===== NUEVA FUNCIÓN: Cargar historial desde Firestore en tiempo real =====
-    function cargarHistorialEnTiempoReal() {
-        db.collection("llamados")
-          .orderBy("fecha", "desc")
-          .onSnapshot((querySnapshot) => {
-              historial = [];
-              querySnapshot.forEach((doc) => {
-                  historial.push({
-                      id: doc.id,
-                      ...doc.data()
-                  });
-              });
-              renderHistorial();
-          }, (error) => {
-              console.log("Error cargando historial:", error);
-          });
-    }
-
-    // ===== NUEVA FUNCIÓN: Guardar en Firestore =====
-    async function guardarEnFirestore(nuevoLlamado) {
-        try {
-            await db.collection("llamados").add(nuevoLlamado);
-            console.log("Llamado guardado en la nube");
-        } catch (error) {
-            console.error("Error guardando:", error);
-            alert("Error al guardar en la nube. Los demás supervisores no verán este llamado.");
-        }
+    function guardarHistorial() {
+        localStorage.setItem('repcontver_historial', JSON.stringify(historial));
+        renderHistorial();
     }
 
     function renderHistorial() {
@@ -105,7 +127,7 @@
         const filtro = searchInput ? searchInput.value.toLowerCase() : '';
         
         if (statsEl) {
-            statsEl.innerHTML = `Total: ${historial.length} llamados guardados (en la nube)`;
+            statsEl.innerHTML = `Total: ${historial.length} llamados guardados`;
         }
 
         container.innerHTML = '';
@@ -116,27 +138,30 @@
         }
         
         const historialFiltrado = historial.filter(item => {
-            return item.trabajador?.toLowerCase().includes(filtro) || 
-                   item.codigo?.toLowerCase().includes(filtro) ||
-                   item.articulo?.toLowerCase().includes(filtro);
+            return item.trabajador.toLowerCase().includes(filtro) || 
+                   item.codigo.toLowerCase().includes(filtro) ||
+                   item.articulo.toLowerCase().includes(filtro);
         });
         
-        historialFiltrado.forEach((item) => {
+        [...historialFiltrado].reverse().forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'historial-item';
             
-            const fecha = item.fecha ? new Date(item.fecha) : new Date();
+            const fecha = new Date(item.fecha);
             const fechaStr = fecha.toLocaleDateString('es-EC');
             
             div.innerHTML = `
                 <div class="historial-info">
-                    <span class="historial-fecha">${fechaStr} | ${item.codigo || 'Sin código'}</span>
-                    <span class="historial-nombre">${item.trabajador || 'Sin nombre'}</span>
-                    <span class="historial-articulo">${item.articulo || 'Sin artículo'}</span>
+                    <span class="historial-fecha">${fechaStr} | ${item.codigo}</span>
+                    <span class="historial-nombre">${item.trabajador}</span>
+                    <span class="historial-articulo">${item.articulo}</span>
                 </div>
                 <div>
-                    <button class="view-historial" data-id="${item.id}" title="Ver PDF">
+                    <button class="view-historial" data-index="${historial.indexOf(item)}" title="Ver PDF">
                         <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="delete-historial" data-index="${historial.indexOf(item)}" title="Eliminar">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             `;
@@ -147,17 +172,27 @@
         document.querySelectorAll('.view-historial').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const id = btn.dataset.id;
-                const llamado = historial.find(h => h.id === id);
+                const index = btn.dataset.index;
+                const llamado = historial[index];
                 if (llamado && llamado.pdfBase64) {
                     const pdfWindow = window.open("");
                     pdfWindow.document.write("<iframe width='100%' height='100%' style='border:none;' src='data:application/pdf;base64," + llamado.pdfBase64 + "'></iframe>");
                 }
             });
         });
+
+        document.querySelectorAll('.delete-historial').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = btn.dataset.index;
+                if (confirm('¿Eliminar este llamado del historial?')) {
+                    historial.splice(index, 1);
+                    guardarHistorial();
+                }
+            });
+        });
     }
 
-    // Renderizar nómina (igual que antes)
     function renderNomina() {
         const container = document.getElementById('nominaListContainer');
         if (!container) return;
@@ -343,7 +378,7 @@
         }
     }
 
-    // ===== FUNCIÓN PRINCIPAL: GENERAR PDF (MODIFICADA PARA USAR FIRESTORE) =====
+    // ===== FUNCIÓN PRINCIPAL: GENERAR PDF (MODIFICADA SOLO PARA GUARDAR EN FIREBASE) =====
     function generarPDF(guardarEnHistorial = true) {
         if (!selectedWorker) { alert('Seleccione un trabajador'); return null; }
         if (!selectedSupervisor) { alert('Seleccione un supervisor'); return null; }
@@ -380,7 +415,7 @@
             day: 'numeric' 
         }).replace(/ de /g, ' del ');
 
-        // ===== ENCABEZADO COMPACTO =====
+        // ===== ENCABEZADO =====
         doc.setFillColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
         doc.rect(0, 0, 210, 32, 'F');
         
@@ -402,17 +437,17 @@
         doc.setFontSize(7);
         doc.text(`Código: ${codigo}`, 160, 14, { align: 'center' });
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5);
+        doc.setFontSize(7);
         doc.text(`Guayaquil, ${fechaLarga}`, 160, 22, { align: 'center' });
 
         // ===== TÍTULO =====
         doc.setTextColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
-        doc.setFontSize(20);
+        doc.setFontSize(22);
         doc.setFont('helvetica', 'bold');
-        doc.text('LLAMADO DE ATENCIÓN', 105, 50, { align: 'center' });
+        doc.text('LLAMADO DE ATENCIÓN', 105, 65, { align: 'center' });
 
         // ===== CUERPO =====
-        let yPos = 60;
+        let yPos = 75;
 
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
@@ -494,10 +529,11 @@
 
         yPos += 20;
 
+        // ===== FIRMAS =====
         doc.setDrawColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
         doc.setLineWidth(0.3);
         doc.line(20, yPos, 190, yPos);
-        
+
         yPos += 10;
 
         doc.setFont('helvetica', 'bold');
@@ -512,10 +548,10 @@
         doc.text(selectedSupervisor.cargo, 20, yPos + 10);
         doc.text('REPCONTVER S.A.', 20, yPos + 15);
 
-        doc.line(20, yPos + 22, 90, yPos + 22);
+        doc.line(20, yPos + 25, 90, yPos + 25);
         doc.setFontSize(7);
         doc.setTextColor(100, 100, 100);
-        doc.text('Firma del supervisor', 35, yPos + 27);
+        doc.text('Firma del supervisor', 35, yPos + 30);
 
         doc.setFillColor(grisClaro[0], grisClaro[1], grisClaro[2]);
         doc.setDrawColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
@@ -543,6 +579,7 @@
         doc.setTextColor(80, 80, 80);
         doc.text('(espacio para huella)', 130, yPos + 40);
 
+        // ===== PIE DE PÁGINA =====
         doc.setFillColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
         doc.rect(0, 275, 210, 22, 'F');
         
@@ -568,26 +605,88 @@
                 pdfBase64: pdfBase64
             };
             
-            // Guardar en Firestore (en la nube)
-            guardarEnFirestore(nuevoLlamado);
+            // Guardar localmente (como siempre)
+            historial.push(nuevoLlamado);
+            guardarHistorial();
+            
+            // También guardar en Firebase (NUEVO)
+            guardarEnFirebase(nuevoLlamado);
         }
 
         doc.save(`llamado_atencion_${selectedWorker.cedula}_${codigo}.pdf`);
-        
         return pdfBase64;
     }
 
-    // ========== EVENT LISTENERS ==========
+    // Función para exportar a Excel
+    function exportarAExcel() {
+        if (historial.length === 0) {
+            alert('No hay datos en el historial para exportar');
+            return;
+        }
+
+        const columnas = [
+            'CÓDIGO',
+            'FECHA',
+            'TRABAJADOR',
+            'CÉDULA',
+            'SUPERVISOR',
+            'CARGO',
+            'SANCIÓN',
+            'ARTÍCULO',
+            'MOTIVO'
+        ];
+
+        const datos = historial.map(item => {
+            const fecha = new Date(item.fecha);
+            const fechaStr = fecha.toLocaleDateString('es-EC') + ' ' + 
+                            fecha.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+            
+            return [
+                item.codigo || '',
+                fechaStr,
+                item.trabajador || '',
+                item.cedula || '',
+                item.supervisor || '',
+                item.cargo || '',
+                item.sancion || '',
+                item.articulo || '',
+                item.motivo || ''
+            ];
+        });
+
+        const contenidoExcel = [columnas, ...datos];
+
+        let csvContent = "";
+        contenidoExcel.forEach(fila => {
+            const filaEscapada = fila.map(celda => {
+                if (typeof celda === 'string' && (celda.includes(',') || celda.includes('"'))) {
+                    return `"${celda.replace(/"/g, '""')}"`;
+                }
+                return celda;
+            }).join(',');
+            csvContent += filaEscapada + "\n";
+        });
+
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `historial_llamados_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+    }
+
+    // ========== EVENT LISTENERS (AGREGADA CARGA DE FIREBASE AL INICIAR) ==========
     document.addEventListener('DOMContentLoaded', function() {
-        // Cargar el historial desde Firestore en tiempo real
-        cargarHistorialEnTiempoReal();
-        
         renderNomina();
         renderSupervisores();
         renderSanciones();
         renderArticulos();
+        renderHistorial();
         actualizarCodigo();
         updateDisplay();
+        
+        // NUEVO: Cargar historial desde Firebase al iniciar
+        cargarHistorialDesdeFirebase();
 
         document.getElementById('btnAgregarNomina')?.addEventListener('click', () => {
             const nombre = document.getElementById('newNombre')?.value.trim();
@@ -654,35 +753,23 @@
             generarPDF(true);
         });
 
-        // Exportar a Excel (desde el historial en memoria)
-        document.getElementById('exportExcelBtn')?.addEventListener('click', function() {
-            if (historial.length === 0) {
-                alert('No hay datos en el historial para exportar');
-                return;
+        document.getElementById('exportHistorialBtn')?.addEventListener('click', () => {
+            const dataStr = JSON.stringify(historial, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `historial_llamados_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        });
+
+        document.getElementById('exportExcelBtn')?.addEventListener('click', exportarAExcel);
+
+        document.getElementById('clearHistorialBtn')?.addEventListener('click', () => {
+            if (confirm('¿Está seguro de eliminar TODO el historial?')) {
+                historial = [];
+                guardarHistorial();
             }
-
-            const columnas = [
-                'CÓDIGO',
-                'FECHA',
-                'TRABAJADOR',
-                'CÉDULA',
-                'SUPERVISOR',
-                'CARGO',
-                'SANCIÓN',
-                'ARTÍCULO',
-                'MOTIVO'
-            ];
-
-            const datos = historial.map(item => {
-                const fecha = item.fecha ? new Date(item.fecha) : new Date();
-                const fechaStr = fecha.toLocaleDateString('es-EC') + ' ' + 
-                                fecha.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
-                
-                return [
-                    item.codigo || '',
-                    fechaStr,
-                    item.trabajador || '',
-                    item.cedula || '',
-                    item.supervisor || '',
-                    item.cargo || '',
-                    item
+        });
+    });
+})();
