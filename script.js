@@ -117,9 +117,8 @@
         }
     }
 
-    // ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (VERSIÓN SILENCIOSA) =====
+    // ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL =====
     function enviarNotificacionEmail(datosLlamado) {
-        // Silenciosamente intenta enviar, pero no muestra errores
         try {
             const serviceID = "service_y9oxf6e";
             const templateID = "template_wxv2z5p";
@@ -145,12 +144,10 @@
             
             emailjs.init(publicKey);
             emailjs.send(serviceID, templateID, templateParams)
-                .then(() => console.log("Email enviado"))
-                .catch(() => {}); // ← ERROR SILENCIADO (no hace nada)
+                .then(() => console.log("✅ Email enviado"))
+                .catch(() => {});
                 
-        } catch (error) {
-            // No hacer nada, error silenciado
-        }
+        } catch (error) {}
     }
 
     function renderHistorial() {
@@ -400,19 +397,34 @@
         }
     }
 
-    // ===== FUNCIÓN PRINCIPAL: GENERAR PDF (SOLO CAMBIÉ LA ALERTA) =====
+    // ===== FUNCIÓN PRINCIPAL: GENERAR PDF (CORREGIDA) =====
     function generarPDF(guardarEnHistorial = true) {
-        // Validaciones con mensaje ÚNICO si falta algo
-        if (!selectedWorker || !selectedSupervisor || !selectedSancion || !selectedArticulo) {
-            alert('⚠️ Por favor seleccione trabajador, supervisor, sanción y artículo antes de generar el PDF');
-            console.log('Falta seleccionar:', {
-                trabajador: !selectedWorker,
-                supervisor: !selectedSupervisor,
-                sancion: !selectedSancion,
-                articulo: !selectedArticulo
-            });
-            return null;
+        // Verificar en consola qué está seleccionado
+        console.log("Verificando selección:");
+        console.log("Trabajador:", selectedWorker);
+        console.log("Supervisor:", selectedSupervisor);
+        console.log("Sanción:", selectedSancion);
+        console.log("Artículo:", selectedArticulo);
+        
+        // Validaciones INDIVIDUALES para saber qué falta
+        if (!selectedWorker) { 
+            alert('⚠️ Por favor seleccione un trabajador de la lista');
+            return null; 
         }
+        if (!selectedSupervisor) { 
+            alert('⚠️ Por favor seleccione un supervisor de la lista');
+            return null; 
+        }
+        if (!selectedSancion) { 
+            alert('⚠️ Por favor seleccione una sanción de la lista');
+            return null; 
+        }
+        if (!selectedArticulo) { 
+            alert('⚠️ Por favor seleccione un artículo de la lista');
+            return null; 
+        }
+
+        console.log("✅ Todo seleccionado correctamente");
 
         const motivo = document.getElementById('motivoField')?.value.trim() || 'Sin especificar';
         const codigo = document.getElementById('codigoUnico')?.innerText || generarCodigo();
@@ -634,10 +646,7 @@
                 pdfBase64: pdfBase64
             };
             
-            // Guardar en Firebase
             guardarEnFirebase(nuevoLlamado);
-            
-            // Enviar notificación email
             enviarNotificacionEmail(nuevoLlamado);
         }
 
@@ -713,7 +722,6 @@
         actualizarCodigo();
         updateDisplay();
         
-        // ===== INICIAR ESCUCHA DE FIREBASE =====
         escucharFirebase();
 
         document.getElementById('btnAgregarNomina')?.addEventListener('click', () => {
