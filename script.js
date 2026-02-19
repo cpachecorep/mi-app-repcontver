@@ -117,51 +117,63 @@
         }
     }
 
-    // ===== NUEVA FUNCIÓN: ENVIAR NOTIFICACIÓN POR EMAIL (EMAILJS) =====
-    function enviarNotificacionEmail(datosLlamado) {
-        try {
-            // Inicializar EmailJS con tu Public Key
-            emailjs.init("esZaPMn1vF6l4ZgXj");
-            
-            // Formatear fecha
-            const fechaObj = new Date(datosLlamado.fecha);
-            const fechaFormateada = fechaObj.toLocaleDateString('es-EC', {
-                day: '2-digit', 
-                month: '2-digit', 
-                year: 'numeric',
-                hour: '2-digit', 
-                minute: '2-digit'
-            });
-            
-            // Parámetros para la plantilla
-            const templateParams = {
-                to_email: "cpacheco@repcontver.com",
-                codigo: datosLlamado.codigo,
-                fecha: fechaFormateada,
-                supervisor: datosLlamado.supervisor,
-                cargo: datosLlamado.cargo,
-                trabajador: datosLlamado.trabajador,
-                cedula: datosLlamado.cedula,
-                articulo: datosLlamado.articulo,
-                sancion: datosLlamado.sancion,
-                motivo: datosLlamado.motivo
-            };
-            
-            // Enviar email
-            emailjs.send(
-                "service_igfjn89",    // Service ID
-                "template_zwj81v9",   // Template ID
-                templateParams
-            ).then(function(response) {
-                console.log("✅ Email enviado exitosamente!", response);
-            }, function(error) {
-                console.error("❌ Error enviando email:", error);
-            });
-            
-        } catch (error) {
-            console.error("❌ Error al enviar notificación:", error);
-        }
+    // ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (VERSIÓN DEPURACIÓN) =====
+function enviarNotificacionEmail(datosLlamado) {
+    try {
+        console.log("📧 Iniciando envío de email...");
+        console.log("📋 Datos del llamado:", datosLlamado);
+        
+        // Inicializar EmailJS con tu Public Key
+        emailjs.init("esZaPMn1vF6l4ZgXj");
+        console.log("✅ EmailJS inicializado");
+        
+        // Formatear fecha
+        const fechaObj = new Date(datosLlamado.fecha);
+        const fechaFormateada = fechaObj.toLocaleDateString('es-EC', {
+            day: '2-digit', 
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit', 
+            minute: '2-digit'
+        });
+        console.log("📅 Fecha formateada:", fechaFormateada);
+        
+        // Parámetros para la plantilla
+        const templateParams = {
+            to_email: "cpacheco@repcontver.com",
+            codigo: datosLlamado.codigo,
+            fecha: fechaFormateada,
+            supervisor: datosLlamado.supervisor,
+            cargo: datosLlamado.cargo,
+            trabajador: datosLlamado.trabajador,
+            cedula: datosLlamado.cedula,
+            articulo: datosLlamado.articulo,
+            sancion: datosLlamado.sancion,
+            motivo: datosLlamado.motivo
+        };
+        console.log("📦 Parámetros de plantilla:", templateParams);
+        
+        // Enviar email
+        emailjs.send(
+            "service_igfjn89",    // Service ID
+            "template_zwj81v9",   // Template ID
+            templateParams
+        ).then(function(response) {
+            console.log("✅✅✅ EMAIL ENVIADO EXITOSAMENTE!", response);
+            console.log("Status:", response.status);
+            console.log("Text:", response.text);
+            alert("✅ Notificación email enviada correctamente");
+        }, function(error) {
+            console.error("❌❌❌ ERROR ENVIANDO EMAIL:", error);
+            console.error("Detalles del error:", JSON.stringify(error));
+            alert("❌ Error al enviar email. Revisa la consola (F12)");
+        });
+        
+    } catch (error) {
+        console.error("❌ Error en la función enviarNotificacionEmail:", error);
+        alert("❌ Error crítico en la función de email");
     }
+}
 
     function renderHistorial() {
         const container = document.getElementById('historialContainer');
@@ -805,3 +817,4 @@
         });
     });
 })();
+
