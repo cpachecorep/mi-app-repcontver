@@ -117,41 +117,41 @@
         }
     }
 
-// ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (VERSIÓN SILENCIOSA) =====
-function enviarNotificacionEmail(datosLlamado) {
-    // Silenciosamente intenta enviar, pero no muestra errores
-    try {
-        const serviceID = "service_y9oxf6e";
-        const templateID = "template_wxv2z5p";
-        const publicKey = "FmZpk2vgPZehbp3qB";
-        
-        const fechaObj = new Date(datosLlamado.fecha);
-        const fechaFormateada = fechaObj.toLocaleDateString('es-EC', {
-            day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit'
-        });
-        
-        const templateParams = {
-            to_email: "cpacheco@repcontver.com",
-            codigo: datosLlamado.codigo,
-            fecha: fechaFormateada,
-            supervisor: datosLlamado.supervisor,
-            cargo: datosLlamado.cargo,
-            trabajador: datosLlamado.trabajador,
-            articulo: datosLlamado.articulo,
-            sancion: datosLlamado.sancion,
-            motivo: datosLlamado.motivo
-        };
-        
-        emailjs.init(publicKey);
-        emailjs.send(serviceID, templateID, templateParams)
-            .then(() => console.log("Email enviado"))
-            .catch(() => {}); // ← ERROR SILENCIADO (no hace nada)
+    // ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL (VERSIÓN SILENCIOSA) =====
+    function enviarNotificacionEmail(datosLlamado) {
+        // Silenciosamente intenta enviar, pero no muestra errores
+        try {
+            const serviceID = "service_y9oxf6e";
+            const templateID = "template_wxv2z5p";
+            const publicKey = "FmZpk2vgPZehbp3qB";
             
-    } catch (error) {
-        // No hacer nada, error silenciado
+            const fechaObj = new Date(datosLlamado.fecha);
+            const fechaFormateada = fechaObj.toLocaleDateString('es-EC', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+            
+            const templateParams = {
+                to_email: "cpacheco@repcontver.com",
+                codigo: datosLlamado.codigo,
+                fecha: fechaFormateada,
+                supervisor: datosLlamado.supervisor,
+                cargo: datosLlamado.cargo,
+                trabajador: datosLlamado.trabajador,
+                articulo: datosLlamado.articulo,
+                sancion: datosLlamado.sancion,
+                motivo: datosLlamado.motivo
+            };
+            
+            emailjs.init(publicKey);
+            emailjs.send(serviceID, templateID, templateParams)
+                .then(() => console.log("Email enviado"))
+                .catch(() => {}); // ← ERROR SILENCIADO (no hace nada)
+                
+        } catch (error) {
+            // No hacer nada, error silenciado
+        }
     }
-}
 
     function renderHistorial() {
         const container = document.getElementById('historialContainer');
@@ -400,12 +400,19 @@ function enviarNotificacionEmail(datosLlamado) {
         }
     }
 
-    // ===== FUNCIÓN PRINCIPAL: GENERAR PDF =====
+    // ===== FUNCIÓN PRINCIPAL: GENERAR PDF (SOLO CAMBIÉ LA ALERTA) =====
     function generarPDF(guardarEnHistorial = true) {
-        if (!selectedWorker) { alert('Seleccione un trabajador'); return null; }
-        if (!selectedSupervisor) { alert('Seleccione un supervisor'); return null; }
-        if (!selectedSancion) { alert('Seleccione una sanción'); return null; }
-        if (!selectedArticulo) { alert('Seleccione un artículo'); return null; }
+        // Validaciones con mensaje ÚNICO si falta algo
+        if (!selectedWorker || !selectedSupervisor || !selectedSancion || !selectedArticulo) {
+            alert('⚠️ Por favor seleccione trabajador, supervisor, sanción y artículo antes de generar el PDF');
+            console.log('Falta seleccionar:', {
+                trabajador: !selectedWorker,
+                supervisor: !selectedSupervisor,
+                sancion: !selectedSancion,
+                articulo: !selectedArticulo
+            });
+            return null;
+        }
 
         const motivo = document.getElementById('motivoField')?.value.trim() || 'Sin especificar';
         const codigo = document.getElementById('codigoUnico')?.innerText || generarCodigo();
@@ -630,7 +637,7 @@ function enviarNotificacionEmail(datosLlamado) {
             // Guardar en Firebase
             guardarEnFirebase(nuevoLlamado);
             
-            // ===== NUEVO: ENVIAR NOTIFICACIÓN EMAIL =====
+            // Enviar notificación email
             enviarNotificacionEmail(nuevoLlamado);
         }
 
@@ -795,9 +802,3 @@ function enviarNotificacionEmail(datosLlamado) {
         });
     });
 })();
-
-
-
-
-
-
