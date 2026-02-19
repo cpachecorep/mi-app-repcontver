@@ -1,596 +1,812 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>REPCONTVER · Sistema de Llamados de Atención</title>
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Firebase SDK (AGREGADO) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+(function() {
+    // ========== CONFIGURACIÓN DE FIREBASE ==========
+    const firebaseConfig = {
+        apiKey: "AIzaSyAFLH5cuIiQ5UVuGW22deUp-nUoxATrXR8",
+        authDomain: "mi-app-repcontver.firebaseapp.com",
+        projectId: "mi-app-repcontver",
+        storageBucket: "mi-app-repcontver.firebasestorage.app",
+        messagingSenderId: "210095808109",
+        appId: "1:210095808109:web:f79a854b4c19da022e2964",
+        measurementId: "G-W4JDBQJSD5"
+    };
 
-        body {
-            background: #f0f2f5;
-            padding: 20px;
-        }
+    // Inicializar Firebase
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.firestore();
 
-        .app-container {
-            max-width: 1800px;
-            margin: 0 auto;
-        }
+    // ========== DATOS INICIALES ==========
+    let nomina = JSON.parse(localStorage.getItem('repcontver_nomina')) || [
+        { nombre: 'SEMINARIO RICARDO EDGAR', cedula: '0921451191' },
+        { nombre: 'LOPEZ TOMALÁ OSCAR EDUARDO', cedula: '0951983519' },
+        { nombre: 'RAMIREZ ESCALANTE MIGUEL ANGEL', cedula: '0941476582' },
+        { nombre: 'SOLORZANO WONG HECTOR EMILIO', cedula: '0922215249' },
+        { nombre: 'MOSQUERA GONZALEZ MARCOS BOLIVAR', cedula: '0929258648' },
+        { nombre: 'CONTRERAS CASTRO ALDO JOSUE', cedula: '0954981304' }
+    ];
 
-        /* Header */
-        .header {
-            background: #0b2b4f;
-            color: white;
-            padding: 20px 30px;
-            border-radius: 15px 15px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+    let supervisores = JSON.parse(localStorage.getItem('repcontver_supervisores')) || [
+        { nombre: 'Angel Diaz de la Cruz', cargo: 'Supervisor de Operaciones' },
+        { nombre: 'Carlos Pacheco', cargo: 'SUPERVISOR' },
+        { nombre: 'Richard Quille Camacho', cargo: 'Representante Legal' }
+    ];
 
-        .logo-area {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
+    let sanciones = JSON.parse(localStorage.getItem('repcontver_sanciones')) || [
+        { nombre: 'Amonestación Verbal', desc: 'Llamado de atención verbal (FALTA LEVE)' },
+        { nombre: 'Amonestación Escrita', desc: 'Amonestación escrita y/o multa hasta 10%' },
+        { nombre: 'Multa 10%', desc: 'Multa que no exceda el 10% de la remuneración' },
+        { nombre: 'Terminación Visto Bueno', desc: 'Terminación de relación laboral vía visto bueno' }
+    ];
 
-        .logo-img {
-            height: 60px;
-            width: auto;
-            background: white;
-            padding: 5px 15px;
-            border-radius: 10px;
-            object-fit: contain;
-        }
+    let historial = [];
 
-        .header h1 {
-            font-size: 1.8rem;
-            font-weight: 500;
-        }
+    const articulos = [
+        { ref: 'Art. 58 Lit.20', desc: 'Sostener altercados verbales GRAVE y físicos MUY GRAVE con compañeros, trabajadores y jefes superiores dentro de las instalaciones de la empresa y su entorno, así como también hacer escandalo dentro de la empresa.', gravedad: 'GRAVE / MUY GRAVE' },
+        { ref: 'Art. 58 (48)', desc: 'Apropiarse de artículos abandonados u olvidados por clientes, compañeros o público en general. Su incumplimiento será considerado como falta MUY GRAVE.', gravedad: 'MUY GRAVE' },
+        { ref: 'Art. 58 (57)', desc: 'Dormirse durante horas de trabajo cuando el trabajador estuviese de turno. Su incumplimiento será considerado como falta GRAVE.', gravedad: 'GRAVE' },
+        { ref: 'Art 58 #22', desc: 'Presentarse en su lugar de trabajo en evidente estado de embriaguez o bajo los efectos de estupefacientes prohibidos por la Ley, Su incumplimiento será considerado como FALTA GRAVE.', gravedad: 'GRAVE' },
+        { ref: 'Art. 11 / Art.54 CT', desc: 'En caso de retraso o ausencia injustificada a su jornada de trabajo, se procederá conforme al Art. 54 del Código del Trabajo.', gravedad: 'LEVE / GRAVE' },
+        { ref: 'Art. 56 #3', desc: 'Ejecutar su labor de acuerdo a las instrucciones y normas técnicas que se hubieren impartido; y, cumplir estrictamente con las disposiciones impartidas por la empresa y/o autoridades competentes, sin que en ningún caso pueda alegarse su incumplimiento por desconocimiento o ignoran de la labor especifica confiada, su incumplimiento será FALTA GRAVE.', gravedad: 'GRAVE' },
+        { ref: 'Art. 58 Lit.16', desc: 'Utilizar en actividades particulares los servicios, bienes materiales, equipos o vehículos de propiedad de la empresa o sus clientes, sin estar debidamente autorizados por el jefe respectivo. Su incumplimiento será considerado como una falta MUY GRAVE.', gravedad: 'MUY GRAVE' },
+        { ref: 'Art. 49', desc: 'El uso de teléfono celular durante la jornada de trabajo no está permitido; Su incumplimiento será considerado como falta GRAVE.', gravedad: 'GRAVE' }
+    ];
 
-        .header-badge {
-            background: #1e3f66;
-            padding: 8px 20px;
-            border-radius: 30px;
-            font-size: 0.9rem;
-            border: 1px solid #3a5f88;
-        }
+    // ========== ESTADO DE SELECCIÓN ==========
+    let selectedWorker = null;
+    let selectedSupervisor = null;
+    let selectedSancion = null;
+    let selectedArticulo = null;
 
-        /* Layout principal */
-        .main-panel {
-            display: grid;
-            grid-template-columns: 350px 1fr 350px;
-            gap: 20px;
-        }
+    // ========== FUNCIONES ==========
+    function generarCodigo() {
+        const d = new Date();
+        return `REP-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${Math.floor(Math.random()*900+100)}`;
+    }
 
-        /* Paneles */
-        .left-panel, .center-panel, .right-panel {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            height: fit-content;
-            max-height: calc(100vh - 120px);
-            overflow-y: auto;
-        }
+    function actualizarCodigo() {
+        const el = document.getElementById('codigoUnico');
+        if (el) el.innerText = generarCodigo();
+    }
 
-        .section-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #0b2b4f;
-            margin: 20px 0 15px 0;
-            padding-left: 10px;
-            border-left: 5px solid #ffb347;
-        }
+    // ===== FUNCIÓN PARA ESCUCHAR CAMBIOS EN FIREBASE =====
+    function escucharFirebase() {
+        db.collection("llamados")
+          .orderBy("fecha", "desc")
+          .onSnapshot((querySnapshot) => {
+              console.log("🔥 Datos recibidos de Firebase:", querySnapshot.size, "documentos");
+              
+              historial = [];
+              
+              querySnapshot.forEach((doc) => {
+                  const data = doc.data();
+                  historial.push({
+                      id: doc.id,
+                      codigo: data.codigo || 'SIN CÓDIGO',
+                      fecha: data.fecha || new Date().toISOString(),
+                      trabajador: data.trabajador || 'SIN NOMBRE',
+                      cedula: data.cedula || 'SIN CÉDULA',
+                      supervisor: data.supervisor || 'SIN SUPERVISOR',
+                      cargo: data.cargo || 'SIN CARGO',
+                      sancion: data.sancion || 'SIN SANCIÓN',
+                      articulo: data.articulo || 'SIN ARTÍCULO',
+                      motivo: data.motivo || 'SIN MOTIVO',
+                      pdfBase64: data.pdfBase64 || null
+                  });
+              });
+              
+              console.log("📊 Historial actualizado:", historial.length, "registros");
+              renderHistorial();
+              
+          }, (error) => {
+              console.error("❌ Error de Firebase:", error);
+              alert("Error conectando con Firebase. Los datos no se sincronizarán.");
+          });
+    }
 
-        .section-title:first-of-type {
-            margin-top: 0;
+    // ===== FUNCIÓN PARA GUARDAR EN FIREBASE =====
+    async function guardarEnFirebase(nuevoLlamado) {
+        try {
+            const docRef = await db.collection("llamados").add(nuevoLlamado);
+            console.log("✅ Guardado en Firebase con ID:", docRef.id);
+            return true;
+        } catch (error) {
+            console.error("❌ Error guardando en Firebase:", error);
+            alert("Error al guardar en la nube. El llamado solo estará disponible localmente.");
+            return false;
         }
+    }
 
-        /* Listas */
-        .nomina-list, .supervisor-list, .sanciones-list, .articulos-container, .historial-list {
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            max-height: 200px;
-            overflow-y: auto;
-            margin-bottom: 15px;
-            background: #f8f9fa;
-        }
-
-        .nomina-item, .supervisor-item, .sancion-item, .articulo-item, .historial-item {
-            padding: 10px 12px;
-            border-bottom: 1px solid #eaeaea;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.9rem;
-        }
-
-        .nomina-item:hover, .supervisor-item:hover, .sancion-item:hover, .articulo-item:hover, .historial-item:hover {
-            background: #e9ecef;
-        }
-
-        .nomina-item.selected, .supervisor-item.selected, .sancion-item.selected, .articulo-item.selected-articulo {
-            background: #d4e0f0;
-            border-left: 4px solid #ffb347;
-        }
-
-        .nomina-info, .supervisor-info, .sancion-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .nomina-nombre, .supervisor-nombre, .sancion-nombre {
-            font-weight: 600;
-            color: #1e2f4a;
-        }
-
-        .nomina-cedula, .supervisor-cargo, .sancion-desc {
-            font-size: 0.75rem;
-            color: #666;
-        }
-
-        .delete-nomina, .delete-supervisor, .delete-sancion, .delete-historial {
-            color: #999;
-            background: none;
-            border: none;
-            font-size: 0.9rem;
-            cursor: pointer;
-            padding: 5px;
-        }
-
-        .delete-nomina:hover, .delete-supervisor:hover, .delete-sancion:hover, .delete-historial:hover {
-            color: #dc3545;
-        }
-
-        .historial-info {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-        }
-
-        .historial-fecha {
-            font-size: 0.7rem;
-            color: #666;
-        }
-
-        .historial-nombre {
-            font-weight: 600;
-            color: #0b2b4f;
-        }
-
-        .historial-articulo {
-            font-size: 0.75rem;
-            color: #444;
-        }
-
-        .view-historial {
-            color: #0b2b4f;
-            background: none;
-            border: none;
-            font-size: 0.9rem;
-            cursor: pointer;
-            padding: 5px;
-        }
-
-        .view-historial:hover {
-            color: #ffb347;
-        }
-
-        /* Formularios de agregar */
-        .add-nomina-form, .add-supervisor-form, .add-sancion-form {
-            background: #f0f4fa;
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-        }
-
-        .input-group {
-            display: flex;
-            align-items: center;
-            background: white;
-            border-radius: 30px;
-            padding: 0 12px;
-            margin-bottom: 8px;
-            border: 1px solid #ddd;
-        }
-
-        .input-group i {
-            color: #7c8ba0;
-            width: 25px;
-            font-size: 0.9rem;
-        }
-
-        .input-group input {
-            width: 100%;
-            padding: 10px 0;
-            border: none;
-            outline: none;
-            font-size: 0.9rem;
-        }
-
-        /* Botones */
-        .btn-primary {
-            background: #0b2b4f;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 30px;
-            width: 100%;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            transition: background 0.2s;
-        }
-
-        .btn-primary:hover {
-            background: #1a3f68;
-        }
-
-        .btn-secondary {
-            background: #e9ecef;
-            color: #0b2b4f;
-            border: 1px solid #ced4da;
-            padding: 8px 15px;
-            border-radius: 30px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: background 0.2s;
-        }
-
-        .btn-secondary:hover {
-            background: #dee2e6;
-        }
-
-        .btn-generate {
-            background: #ffb347;
-            color: #0b2b4f;
-            border: none;
-            padding: 15px;
-            border-radius: 30px;
-            width: 100%;
-            font-weight: 700;
-            font-size: 1.1rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 15px;
-            transition: background 0.2s;
-        }
-
-        .btn-generate:hover {
-            background: #ffa01c;
-        }
-
-        /* Artículos */
-        .articulo-ref {
-            font-weight: 700;
-            color: #0b2b4f;
-            font-size: 0.9rem;
-        }
-
-        .articulo-desc {
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 2px;
-        }
-
-        .articulo-gravedad {
-            font-size: 0.65rem;
-            background: #f0d9b4;
-            color: #7a5a2a;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        /* Panel central */
-        .form-row {
-            margin-bottom: 15px;
-        }
-
-        label {
-            font-weight: 600;
-            color: #1e3b5a;
-            display: block;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-        }
-
-        .readonly-info {
-            background: #f0f4fa;
-            border: 1px solid #d0dded;
-            border-radius: 30px;
-            padding: 10px 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-            min-height: 45px;
-        }
-
-        .motivo-input {
-            width: 100%;
-            padding: 12px 15px;
-            border-radius: 20px;
-            border: 1px solid #d0dded;
-            font-size: 0.9rem;
-            resize: vertical;
-        }
-
-        .field-card {
-            background: #f8fbff;
-            border-radius: 20px;
-            padding: 20px;
-            border: 1px solid #d6e0ed;
-            margin: 15px 0;
-        }
-
-        .code-preview {
-            background: #e9ecef;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-family: monospace;
-            font-size: 1rem;
-            border: 1px dashed #0b2b4f;
-        }
-
-        .footer-note {
-            text-align: center;
-            color: #666;
-            font-size: 0.8rem;
-            margin-top: 15px;
-        }
-
-        .small-note {
-            font-size: 0.75rem;
-            color: #666;
-            margin-top: 3px;
-        }
-
-        .flex-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .search-box {
-            width: 100%;
-            padding: 10px 15px;
-            border-radius: 30px;
-            border: 1px solid #ddd;
-            margin-bottom: 10px;
-            font-size: 0.9rem;
-        }
-
-        .historial-stats {
-            background: #e9ecef;
-            border-radius: 20px;
-            padding: 8px 12px;
-            margin-bottom: 10px;
-            font-size: 0.85rem;
-            text-align: center;
-            color: #0b2b4f;
-            font-weight: 600;
-        }
-
-        .logo-preview {
-            max-width: 100%;
-            max-height: 40px;
-            margin-bottom: 10px;
-        }
-    </style>
-</head>
-<body>
-<div class="app-container">
-    <!-- HEADER CON LOGO -->
-    <div class="header">
-        <div class="logo-area">
-            <img src="https://media.licdn.com/dms/image/v2/C560BAQGk1rF968bP-w/company-logo_200_200/company-logo_200_200/0/1657038777307?e=2147483647&v=beta&t=HWDTxg7bjRaeocPoKxyofreFZy2HxqlheEdRpxIuDmg" 
-                 alt="REPCONTVER" 
-                 class="logo-img"
-                 id="headerLogo"
-                 crossorigin="anonymous">
-            <h1>· Actas Disciplinarias</h1>
-        </div>
-        <div class="header-badge">
-            <i class="fas fa-shield-alt"></i> BASC · Sistema de Gestión
-        </div>
-    </div>
-
-    <!-- PANEL PRINCIPAL DE 3 COLUMNAS -->
-    <div class="main-panel">
-        <!-- COLUMNA IZQUIERDA: TRABAJADORES Y SUPERVISORES -->
-        <div class="left-panel">
-            <!-- TRABAJADORES -->
-            <div class="section-title">
-                <i class="fas fa-users"></i> Trabajadores
-            </div>
-            <div class="nomina-list" id="nominaListContainer"></div>
+    // ===== FUNCIÓN PARA ENVIAR NOTIFICACIÓN POR EMAIL =====
+    function enviarNotificacionEmail(datosLlamado) {
+        try {
+            const serviceID = "service_y9oxf6e";
+            const templateID = "template_wxv2z5p";
+            const publicKey = "FmZpk2vgPZehbp3qB";
             
-            <div class="add-nomina-form">
-                <div class="input-group">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="newNombre" placeholder="Nombre completo">
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-id-card"></i>
-                    <input type="text" id="newCedula" placeholder="Cédula">
-                </div>
-                <button class="btn-primary" id="btnAgregarNomina">
-                    <i class="fas fa-plus-circle"></i> Agregar trabajador
-                </button>
-            </div>
-
-            <!-- SUPERVISORES -->
-            <div class="section-title">
-                <i class="fas fa-user-tie"></i> Supervisores
-            </div>
-            <div class="supervisor-list" id="supervisorListContainer"></div>
+            const fechaObj = new Date(datosLlamado.fecha);
+            const fechaFormateada = fechaObj.toLocaleDateString('es-EC', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
             
-            <div class="add-supervisor-form">
-                <div class="input-group">
-                    <i class="fas fa-user-tie"></i>
-                    <input type="text" id="newSupNombre" placeholder="Nombre del supervisor">
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-briefcase"></i>
-                    <input type="text" id="newSupCargo" placeholder="Cargo">
-                </div>
-                <button class="btn-primary" id="btnAgregarSupervisor">
-                    <i class="fas fa-plus-circle"></i> Agregar supervisor
-                </button>
-            </div>
-
-            <!-- SANCIONES (NUEVO) -->
-            <div class="section-title">
-                <i class="fas fa-exclamation-triangle"></i> Sanciones
-            </div>
-            <div class="sanciones-list" id="sancionesListContainer"></div>
+            const templateParams = {
+                to_email: "cpacheco@repcontver.com",
+                codigo: datosLlamado.codigo,
+                fecha: fechaFormateada,
+                supervisor: datosLlamado.supervisor,
+                cargo: datosLlamado.cargo,
+                trabajador: datosLlamado.trabajador,
+                articulo: datosLlamado.articulo,
+                sancion: datosLlamado.sancion,
+                motivo: datosLlamado.motivo
+            };
             
-            <div class="add-sancion-form">
-                <div class="input-group">
-                    <i class="fas fa-tag"></i>
-                    <input type="text" id="newSancionNombre" placeholder="Nombre de la sanción">
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-align-left"></i>
-                    <input type="text" id="newSancionDesc" placeholder="Descripción">
-                </div>
-                <button class="btn-primary" id="btnAgregarSancion">
-                    <i class="fas fa-plus-circle"></i> Agregar sanción
-                </button>
-            </div>
-        </div>
+            emailjs.init(publicKey);
+            emailjs.send(serviceID, templateID, templateParams)
+                .then(() => console.log("✅ Email enviado"))
+                .catch(() => {});
+                
+        } catch (error) {}
+    }
 
-        <!-- COLUMNA CENTRAL: GENERADOR -->
-        <div class="center-panel">
-            <div class="section-title">
-                <i class="fas fa-file-signature"></i> Nuevo llamado de atención
-            </div>
+    function renderHistorial() {
+        const container = document.getElementById('historialContainer');
+        const statsEl = document.getElementById('historialStats');
+        const searchInput = document.getElementById('buscarHistorial');
+        
+        if (!container) return;
+        
+        const filtro = searchInput ? searchInput.value.toLowerCase() : '';
+        
+        if (statsEl) {
+            statsEl.innerHTML = `Total: ${historial.length} llamados (sincronizados)`;
+        }
 
-            <!-- TRABAJADOR SELECCIONADO -->
-            <div class="form-row">
-                <label><i class="fas fa-user"></i> Trabajador</label>
-                <div class="readonly-info" id="displaySelectedWorker">
-                    <i class="fas fa-user-check"></i>
-                    <span id="selectedWorkerText">Selecciona un trabajador</span>
+        container.innerHTML = '';
+        
+        if (historial.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No hay llamados guardados</div>';
+            return;
+        }
+        
+        const historialFiltrado = historial.filter(item => {
+            return (item.trabajador?.toLowerCase().includes(filtro) || 
+                   item.codigo?.toLowerCase().includes(filtro) ||
+                   item.articulo?.toLowerCase().includes(filtro));
+        });
+        
+        historialFiltrado.forEach((item) => {
+            const div = document.createElement('div');
+            div.className = 'historial-item';
+            
+            const fecha = item.fecha ? new Date(item.fecha) : new Date();
+            const fechaStr = fecha.toLocaleDateString('es-EC');
+            
+            div.innerHTML = `
+                <div class="historial-info">
+                    <span class="historial-fecha">${fechaStr} | ${item.codigo || 'S/C'}</span>
+                    <span class="historial-nombre">${item.trabajador || 'S/N'}</span>
+                    <span class="historial-articulo">${item.articulo || 'S/A'}</span>
                 </div>
-            </div>
-
-            <!-- SUPERVISOR SELECCIONADO -->
-            <div class="form-row">
-                <label><i class="fas fa-user-tie"></i> Supervisor</label>
-                <div class="readonly-info" id="displaySelectedSupervisor">
-                    <i class="fas fa-check-circle"></i>
-                    <span id="selectedSupervisorText">Selecciona un supervisor</span>
-                </div>
-            </div>
-
-            <!-- SANCIÓN SELECCIONADA (NUEVO) -->
-            <div class="form-row">
-                <label><i class="fas fa-exclamation-triangle"></i> Sanción</label>
-                <div class="readonly-info" id="displaySelectedSancion">
-                    <i class="fas fa-gavel"></i>
-                    <span id="selectedSancionText">Selecciona una sanción</span>
-                </div>
-            </div>
-
-            <!-- ARTÍCULO SELECCIONADO -->
-            <div class="form-row">
-                <label><i class="fas fa-book"></i> Artículo</label>
-                <div class="readonly-info" id="displaySelectedArticulo">
-                    <i class="fas fa-scale-balanced"></i>
-                    <span id="selectedArticuloText">Selecciona un artículo</span>
-                </div>
-            </div>
-
-            <!-- MOTIVO -->
-            <div class="form-row">
-                <label><i class="fas fa-pencil"></i> Motivo</label>
-                <textarea id="motivoField" rows="2" class="motivo-input" 
-                          placeholder="Describe los hechos..."></textarea>
-            </div>
-<!-- VISTA PREVIA DEL ESTILO PDF -->
-<div class="pdf-color-preview">
-    <i class="fas fa-palette"></i> PDF con diseño corporativo · Color azul REPCONTVER
-</div>
-            <!-- CÓDIGO Y GENERADOR -->
-            <div class="field-card">
-                <div class="flex-row" style="margin-bottom:15px;">
-                    <span><i class="fas fa-qrcode"></i> Código:</span>
-                    <span class="code-preview" id="codigoUnico">REP-20250218-001</span>
-                    <button class="btn-secondary" id="refreshCodigo">
-                        <i class="fas fa-rotate"></i> Nuevo
+                <div>
+                    <button class="view-historial" data-index="${historial.indexOf(item)}" title="Ver PDF">
+                        <i class="fas fa-eye"></i>
                     </button>
                 </div>
-                
-                <button class="btn-generate" id="generarPdfBtn">
-                    <i class="fas fa-file-pdf"></i> GENERAR Y GUARDAR
-                </button>
-            </div>
-        </div>
+            `;
+            
+            container.appendChild(div);
+        });
 
-        <!-- COLUMNA DERECHA: ARTÍCULOS E HISTORIAL -->
-        <div class="right-panel">
-            <!-- ARTÍCULOS CON BUSCADOR -->
-            <div class="section-title">
-                <i class="fas fa-gavel"></i> Artículos
-            </div>
-            <input type="text" id="buscarArticulo" class="search-box" placeholder="Buscar artículo...">
-            <div class="articulos-container" id="articulosContainer"></div>
+        document.querySelectorAll('.view-historial').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = btn.dataset.index;
+                const llamado = historial[index];
+                if (llamado && llamado.pdfBase64) {
+                    const pdfWindow = window.open("");
+                    pdfWindow.document.write("<iframe width='100%' height='100%' style='border:none;' src='data:application/pdf;base64," + llamado.pdfBase64 + "'></iframe>");
+                }
+            });
+        });
+    }
 
-            <!-- HISTORIAL DE LLAMADOS -->
-            <div class="section-title">
-                <i class="fas fa-history"></i> Historial de llamados
-            </div>
-            <div class="historial-stats" id="historialStats">Total: 0 llamados</div>
-            <input type="text" id="buscarHistorial" class="search-box" placeholder="Buscar en historial...">
-            <div class="historial-list" id="historialContainer"></div>
-            <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-                <button class="btn-secondary" id="exportHistorialBtn" style="flex: 1;">
-                    <i class="fas fa-download"></i> JSON
-                </button>
-                <button class="btn-secondary" id="exportExcelBtn" style="flex: 1; background: #28a745; color: white; border-color: #28a745;">
-                    <i class="fas fa-file-excel"></i> EXCEL
-                </button>
-                <button class="btn-secondary" id="clearHistorialBtn" style="flex: 1;">
-                    <i class="fas fa-trash"></i> Limpiar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+    function renderNomina() {
+        const container = document.getElementById('nominaListContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        nomina.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = `nomina-item ${selectedWorker?.cedula === item.cedula ? 'selected' : ''}`;
+            div.innerHTML = `
+                <div class="nomina-info">
+                    <span class="nomina-nombre">${item.nombre}</span>
+                    <span class="nomina-cedula">${item.cedula}</span>
+                </div>
+                <button class="delete-nomina" data-index="${index}"><i class="fas fa-trash"></i></button>
+            `;
+            
+            div.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-nomina')) return;
+                selectedWorker = { nombre: item.nombre, cedula: item.cedula };
+                renderNomina();
+                updateDisplay();
+            });
+            
+            container.appendChild(div);
+        });
 
-<!-- SCRIPTS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/FileSaver@2.0.5/dist/FileSaver.min.js"></script>
-<script src="script.js"></script>
+        document.querySelectorAll('.delete-nomina').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = btn.dataset.index;
+                nomina.splice(index, 1);
+                if (selectedWorker && !nomina.find(w => w.cedula === selectedWorker.cedula)) {
+                    selectedWorker = null;
+                }
+                localStorage.setItem('repcontver_nomina', JSON.stringify(nomina));
+                renderNomina();
+                updateDisplay();
+            });
+        });
+    }
 
-<!-- EmailJS SDK (AGREGAR ESTA LÍNEA) -->
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-<script src="script.js"></script>
-</body>
-</html>
+    function renderSupervisores() {
+        const container = document.getElementById('supervisorListContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        supervisores.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = `supervisor-item ${selectedSupervisor?.nombre === item.nombre && selectedSupervisor?.cargo === item.cargo ? 'selected' : ''}`;
+            div.innerHTML = `
+                <div class="supervisor-info">
+                    <span class="supervisor-nombre">${item.nombre}</span>
+                    <span class="supervisor-cargo">${item.cargo}</span>
+                </div>
+                <button class="delete-supervisor" data-index="${index}"><i class="fas fa-trash"></i></button>
+            `;
+            
+            div.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-supervisor')) return;
+                selectedSupervisor = { nombre: item.nombre, cargo: item.cargo };
+                renderSupervisores();
+                updateDisplay();
+            });
+            
+            container.appendChild(div);
+        });
 
+        document.querySelectorAll('.delete-supervisor').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = btn.dataset.index;
+                supervisores.splice(index, 1);
+                if (selectedSupervisor && !supervisores.find(s => s.nombre === selectedSupervisor.nombre && s.cargo === selectedSupervisor.cargo)) {
+                    selectedSupervisor = null;
+                }
+                localStorage.setItem('repcontver_supervisores', JSON.stringify(supervisores));
+                renderSupervisores();
+                updateDisplay();
+            });
+        });
+    }
+
+    function renderSanciones() {
+        const container = document.getElementById('sancionesListContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        sanciones.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = `sancion-item ${selectedSancion?.nombre === item.nombre ? 'selected' : ''}`;
+            div.innerHTML = `
+                <div class="sancion-info">
+                    <span class="sancion-nombre">${item.nombre}</span>
+                    <span class="sancion-desc">${item.desc}</span>
+                </div>
+                <button class="delete-sancion" data-index="${index}"><i class="fas fa-trash"></i></button>
+            `;
+            
+            div.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-sancion')) return;
+                selectedSancion = { nombre: item.nombre, desc: item.desc };
+                renderSanciones();
+                updateDisplay();
+            });
+            
+            container.appendChild(div);
+        });
+
+        document.querySelectorAll('.delete-sancion').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = btn.dataset.index;
+                sanciones.splice(index, 1);
+                if (selectedSancion && !sanciones.find(s => s.nombre === selectedSancion.nombre)) {
+                    selectedSancion = null;
+                }
+                localStorage.setItem('repcontver_sanciones', JSON.stringify(sanciones));
+                renderSanciones();
+                updateDisplay();
+            });
+        });
+    }
+
+    function renderArticulos(filter = '') {
+        const container = document.getElementById('articulosContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        const filtro = filter.toLowerCase();
+        
+        let articulosFiltrados = articulos;
+        if (filtro) {
+            articulosFiltrados = articulos.filter(art => 
+                art.ref.toLowerCase().includes(filtro) || 
+                art.desc.toLowerCase().includes(filtro)
+            );
+        }
+        
+        articulosFiltrados.forEach(art => {
+            const div = document.createElement('div');
+            div.className = `articulo-item ${selectedArticulo?.ref === art.ref ? 'selected-articulo' : ''}`;
+            div.innerHTML = `
+                <div>
+                    <span class="articulo-ref">${art.ref}</span>
+                    <div class="articulo-desc">${art.desc.substring(0, 80)}...</div>
+                </div>
+                <span class="articulo-gravedad">${art.gravedad}</span>
+            `;
+            
+            div.addEventListener('click', () => {
+                selectedArticulo = { ref: art.ref, desc: art.desc, gravedad: art.gravedad };
+                renderArticulos(document.getElementById('buscarArticulo')?.value || '');
+                updateDisplay();
+            });
+            
+            container.appendChild(div);
+        });
+        
+        if (container.innerHTML === '') {
+            container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No se encontraron artículos</div>';
+        }
+    }
+
+    function updateDisplay() {
+        const workerSpan = document.getElementById('selectedWorkerText');
+        if (workerSpan) {
+            workerSpan.innerText = selectedWorker ? `${selectedWorker.nombre} (${selectedWorker.cedula})` : 'Selecciona un trabajador';
+        }
+
+        const supervisorSpan = document.getElementById('selectedSupervisorText');
+        if (supervisorSpan) {
+            supervisorSpan.innerText = selectedSupervisor ? `${selectedSupervisor.nombre} - ${selectedSupervisor.cargo}` : 'Selecciona un supervisor';
+        }
+
+        const sancionSpan = document.getElementById('selectedSancionText');
+        if (sancionSpan) {
+            sancionSpan.innerText = selectedSancion ? selectedSancion.nombre : 'Selecciona una sanción';
+        }
+
+        const articuloSpan = document.getElementById('selectedArticuloText');
+        if (articuloSpan) {
+            articuloSpan.innerText = selectedArticulo ? `${selectedArticulo.ref}: ${selectedArticulo.desc.substring(0, 50)}...` : 'Selecciona un artículo';
+        }
+    }
+
+    // ===== FUNCIÓN PRINCIPAL: GENERAR PDF (CORREGIDA) =====
+    function generarPDF(guardarEnHistorial = true) {
+        // Verificar en consola qué está seleccionado
+        console.log("Verificando selección:");
+        console.log("Trabajador:", selectedWorker);
+        console.log("Supervisor:", selectedSupervisor);
+        console.log("Sanción:", selectedSancion);
+        console.log("Artículo:", selectedArticulo);
+        
+        // Validaciones INDIVIDUALES para saber qué falta
+        if (!selectedWorker) { 
+            alert('⚠️ Por favor seleccione un trabajador de la lista');
+            return null; 
+        }
+        if (!selectedSupervisor) { 
+            alert('⚠️ Por favor seleccione un supervisor de la lista');
+            return null; 
+        }
+        if (!selectedSancion) { 
+            alert('⚠️ Por favor seleccione una sanción de la lista');
+            return null; 
+        }
+        if (!selectedArticulo) { 
+            alert('⚠️ Por favor seleccione un artículo de la lista');
+            return null; 
+        }
+
+        console.log("✅ Todo seleccionado correctamente");
+
+        const motivo = document.getElementById('motivoField')?.value.trim() || 'Sin especificar';
+        const codigo = document.getElementById('codigoUnico')?.innerText || generarCodigo();
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        // Colores corporativos
+        const azulOscuro = [11, 43, 79];
+        const naranja = [255, 180, 71];
+        const grisClaro = [245, 245, 245];
+
+        // Fecha y hora
+        const fecha = new Date();
+        const dia = fecha.getDate().toString().padStart(2, '0');
+        const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+        const anio = fecha.getFullYear();
+        const hora = fecha.getHours().toString().padStart(2, '0');
+        const minutos = fecha.getMinutes().toString().padStart(2, '0');
+        
+        const fechaFormato = `${dia}/${mes}/${anio} ${hora}:${minutos}`;
+        const fechaLarga = fecha.toLocaleDateString('es-EC', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        }).replace(/ de /g, ' del ');
+
+        // ===== ENCABEZADO =====
+        doc.setFillColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.rect(0, 0, 210, 32, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REPCONTVER S.A.', 20, 12);
+        
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text('SERVICIOS EXTRAPORTUARIOS', 20, 17);
+        
+        doc.setFontSize(6);
+        doc.text('Dirección: KM 23.5 VIA PERIMETRAL, FRENTE A HOSPITAL UNIVERSITARIO', 20, 22);
+        doc.text('Teléfono: (04)2023253', 20, 26);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.text(`Código: ${codigo}`, 160, 14, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.text(`Guayaquil, ${fechaLarga}`, 160, 22, { align: 'center' });
+
+        // ===== TÍTULO =====
+        doc.setTextColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.text('LLAMADO DE ATENCIÓN', 105, 65, { align: 'center' });
+
+        // ===== CUERPO =====
+        let yPos = 75;
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        const intro = `Se hace el siguiente llamado de atención al Sr. ${selectedWorker.nombre} CI.: ${selectedWorker.cedula} por haber incumplido con el reglamento interno de trabajo de Repcontver S.A., específicamente lo estipulado en:`;
+        const linesIntro = doc.splitTextToSize(intro, 170);
+        doc.text(linesIntro, 20, yPos);
+        
+        yPos += (linesIntro.length * 5) + 5;
+
+        doc.setFillColor(grisClaro[0], grisClaro[1], grisClaro[2]);
+        doc.setDrawColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.roundedRect(20, yPos - 2, 170, 25, 3, 3, 'FD');
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.setFontSize(10);
+        doc.text(selectedArticulo.ref, 25, yPos + 5);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(80, 80, 80);
+        const descripcion = `"${selectedArticulo.desc}"`;
+        const linesDesc = doc.splitTextToSize(descripcion, 150);
+        doc.text(linesDesc, 25, yPos + 13);
+        
+        yPos += 30;
+
+        doc.setFillColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.setTextColor(255, 255, 255);
+        doc.roundedRect(20, yPos - 3, 170, 30, 3, 3, 'F');
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text('RÉGIMEN DISCIPLINARIO', 25, yPos + 3);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text('• FALTA LEVE: Primera vez: amonestación verbal. Segunda vez: amonestación escrita y/o multa hasta 10%.', 25, yPos + 11);
+        doc.text('• FALTA GRAVE: Primera vez: Multa hasta 10%; reincidencia: Terminación vía visto bueno.', 25, yPos + 18);
+        doc.text('• FALTA MUY GRAVE: Terminación de relación laboral, previo visto bueno.', 25, yPos + 25);
+        
+        yPos += 35;
+
+        doc.setFillColor(naranja[0], naranja[1], naranja[2]);
+        doc.circle(23, yPos - 2, 2, 'F');
+        
+        doc.setTextColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text('MOTIVO', 30, yPos);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(10);
+        const linesMotivo = doc.splitTextToSize(motivo, 160);
+        doc.text(linesMotivo, 30, yPos + 7);
+        
+        yPos += (linesMotivo.length * 6) + 15;
+
+        doc.setFillColor(naranja[0], naranja[1], naranja[2]);
+        doc.circle(23, yPos - 2, 2, 'F');
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.setFontSize(11);
+        doc.text('SANCIÓN APLICADA', 30, yPos);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(10);
+        doc.text(`${selectedSancion.nombre} - ${selectedSancion.desc}`, 30, yPos + 7);
+        
+        yPos += 20;
+
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(9);
+        doc.text('En caso de no proceder a firmar, firmará un testigo.', 20, yPos);
+        doc.text('Comunicado que se archivará dentro de su carpeta.', 20, yPos + 6);
+
+        yPos += 20;
+
+        // ===== FIRMAS =====
+        doc.setDrawColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.setLineWidth(0.3);
+        doc.line(20, yPos, 190, yPos);
+
+        yPos += 10;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.setFontSize(10);
+        doc.text('SUPERVISOR', 20, yPos);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        doc.text(selectedSupervisor.nombre, 20, yPos + 5);
+        doc.text(selectedSupervisor.cargo, 20, yPos + 10);
+        doc.text('REPCONTVER S.A.', 20, yPos + 15);
+
+        doc.line(20, yPos + 25, 90, yPos + 25);
+        doc.setFontSize(7);
+        doc.setTextColor(100, 100, 100);
+        doc.text('Firma del supervisor', 35, yPos + 30);
+
+        doc.setFillColor(grisClaro[0], grisClaro[1], grisClaro[2]);
+        doc.setDrawColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.roundedRect(120, yPos - 5, 70, 48, 5, 5, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.setFontSize(11);
+        doc.text('RECIBIDO', 140, yPos + 5);
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.3);
+        doc.line(125, yPos + 18, 185, yPos + 18);
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(80, 80, 80);
+        doc.text('Firma de recibido', 138, yPos + 23);
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.text('HUELLA', 138, yPos + 35);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(80, 80, 80);
+        doc.text('(espacio para huella)', 130, yPos + 40);
+
+        // ===== PIE DE PÁGINA =====
+        doc.setFillColor(azulOscuro[0], azulOscuro[1], azulOscuro[2]);
+        doc.rect(0, 275, 210, 22, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Sistema de Gestión BASC · REPCONTVER S.A.', 105, 290, { align: 'center' });
+        doc.text(fechaFormato, 190, 290, { align: 'right' });
+
+        const pdfBase64 = doc.output('datauristring').split(',')[1];
+
+        if (guardarEnHistorial) {
+            const nuevoLlamado = {
+                codigo: codigo,
+                fecha: new Date().toISOString(),
+                trabajador: selectedWorker.nombre,
+                cedula: selectedWorker.cedula,
+                supervisor: selectedSupervisor.nombre,
+                cargo: selectedSupervisor.cargo,
+                sancion: selectedSancion.nombre,
+                articulo: selectedArticulo.ref,
+                motivo: motivo,
+                pdfBase64: pdfBase64
+            };
+            
+            guardarEnFirebase(nuevoLlamado);
+            enviarNotificacionEmail(nuevoLlamado);
+        }
+
+        doc.save(`llamado_atencion_${selectedWorker.cedula}_${codigo}.pdf`);
+        return pdfBase64;
+    }
+
+    // Función para exportar a Excel
+    function exportarAExcel() {
+        if (historial.length === 0) {
+            alert('No hay datos en el historial para exportar');
+            return;
+        }
+
+        const columnas = [
+            'CÓDIGO',
+            'FECHA',
+            'TRABAJADOR',
+            'CÉDULA',
+            'SUPERVISOR',
+            'CARGO',
+            'SANCIÓN',
+            'ARTÍCULO',
+            'MOTIVO'
+        ];
+
+        const datos = historial.map(item => {
+            const fecha = new Date(item.fecha);
+            const fechaStr = fecha.toLocaleDateString('es-EC') + ' ' + 
+                            fecha.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+            
+            return [
+                item.codigo || '',
+                fechaStr,
+                item.trabajador || '',
+                item.cedula || '',
+                item.supervisor || '',
+                item.cargo || '',
+                item.sancion || '',
+                item.articulo || '',
+                item.motivo || ''
+            ];
+        });
+
+        const contenidoExcel = [columnas, ...datos];
+
+        let csvContent = "";
+        contenidoExcel.forEach(fila => {
+            const filaEscapada = fila.map(celda => {
+                if (typeof celda === 'string' && (celda.includes(',') || celda.includes('"'))) {
+                    return `"${celda.replace(/"/g, '""')}"`;
+                }
+                return celda;
+            }).join(',');
+            csvContent += filaEscapada + "\n";
+        });
+
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `historial_llamados_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+    }
+
+    // ========== EVENT LISTENERS ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        renderNomina();
+        renderSupervisores();
+        renderSanciones();
+        renderArticulos();
+        renderHistorial();
+        actualizarCodigo();
+        updateDisplay();
+        
+        escucharFirebase();
+
+        document.getElementById('btnAgregarNomina')?.addEventListener('click', () => {
+            const nombre = document.getElementById('newNombre')?.value.trim();
+            const cedula = document.getElementById('newCedula')?.value.trim();
+            
+            if (!nombre || !cedula) {
+                alert('Ingrese nombre y cédula');
+                return;
+            }
+            
+            nomina.push({ nombre, cedula });
+            localStorage.setItem('repcontver_nomina', JSON.stringify(nomina));
+            
+            document.getElementById('newNombre').value = '';
+            document.getElementById('newCedula').value = '';
+            renderNomina();
+        });
+
+        document.getElementById('btnAgregarSupervisor')?.addEventListener('click', () => {
+            const nombre = document.getElementById('newSupNombre')?.value.trim();
+            const cargo = document.getElementById('newSupCargo')?.value.trim() || 'Supervisor';
+            
+            if (!nombre) {
+                alert('Ingrese el nombre del supervisor');
+                return;
+            }
+            
+            supervisores.push({ nombre, cargo });
+            localStorage.setItem('repcontver_supervisores', JSON.stringify(supervisores));
+            
+            document.getElementById('newSupNombre').value = '';
+            document.getElementById('newSupCargo').value = '';
+            renderSupervisores();
+        });
+
+        document.getElementById('btnAgregarSancion')?.addEventListener('click', () => {
+            const nombre = document.getElementById('newSancionNombre')?.value.trim();
+            const desc = document.getElementById('newSancionDesc')?.value.trim() || '';
+            
+            if (!nombre) {
+                alert('Ingrese el nombre de la sanción');
+                return;
+            }
+            
+            sanciones.push({ nombre, desc });
+            localStorage.setItem('repcontver_sanciones', JSON.stringify(sanciones));
+            
+            document.getElementById('newSancionNombre').value = '';
+            document.getElementById('newSancionDesc').value = '';
+            renderSanciones();
+        });
+
+        document.getElementById('buscarArticulo')?.addEventListener('input', (e) => {
+            renderArticulos(e.target.value);
+        });
+
+        document.getElementById('buscarHistorial')?.addEventListener('input', () => {
+            renderHistorial();
+        });
+
+        document.getElementById('refreshCodigo')?.addEventListener('click', actualizarCodigo);
+
+        document.getElementById('generarPdfBtn')?.addEventListener('click', () => {
+            generarPDF(true);
+        });
+
+        document.getElementById('exportHistorialBtn')?.addEventListener('click', () => {
+            const dataStr = JSON.stringify(historial, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `historial_llamados_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        });
+
+        document.getElementById('exportExcelBtn')?.addEventListener('click', exportarAExcel);
+
+        document.getElementById('clearHistorialBtn')?.addEventListener('click', () => {
+            if (confirm('¿Está seguro de eliminar TODO el historial?')) {
+                historial = [];
+                renderHistorial();
+                alert('Nota: Esto solo limpia la vista local. Los datos en la nube permanecen.');
+            }
+        });
+    });
+})();
