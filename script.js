@@ -17,7 +17,7 @@
     }
     const db = firebase.firestore();
 
-    // ========== DATOS INICIALES (TODO IGUAL) ==========
+    // ========== DATOS INICIALES ==========
     let nomina = JSON.parse(localStorage.getItem('repcontver_nomina')) || [
         { nombre: 'SEMINARIO RICARDO EDGAR', cedula: '0921451191' },
         { nombre: 'LOPEZ TOMALÁ OSCAR EDUARDO', cedula: '0951983519' },
@@ -59,49 +59,7 @@
     let selectedSancion = null;
     let selectedArticulo = null;
 
-    // ========== FUNCIONES NUEVAS DE FIREBASE ==========
-    
-    // Función para cargar historial desde Firebase al iniciar
-    async function cargarHistorialDesdeFirebase() {
-        try {
-            const querySnapshot = await db.collection("llamados")
-                .orderBy("fecha", "desc")
-                .get();
-            
-            const firebaseHistorial = [];
-            querySnapshot.forEach((doc) => {
-                firebaseHistorial.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            // Fusionar con el historial local (evitar duplicados)
-            const nuevos = firebaseHistorial.filter(item => 
-                !historial.some(local => local.codigo === item.codigo)
-            );
-            
-            if (nuevos.length > 0) {
-                historial = [...historial, ...nuevos];
-                localStorage.setItem('repcontver_historial', JSON.stringify(historial));
-                renderHistorial();
-            }
-        } catch (error) {
-            console.log("Error cargando desde Firebase:", error);
-        }
-    }
-
-    // Función para guardar en Firebase
-    async function guardarEnFirebase(nuevoLlamado) {
-        try {
-            await db.collection("llamados").add(nuevoLlamado);
-            console.log("Guardado en Firebase exitosamente");
-        } catch (error) {
-            console.log("Error guardando en Firebase:", error);
-        }
-    }
-
-    // ========== TUS FUNCIONES ORIGINALES (SIN CAMBIOS) ==========
+    // ========== FUNCIONES ==========
     function generarCodigo() {
         const d = new Date();
         return `REP-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${Math.floor(Math.random()*900+100)}`;
@@ -378,7 +336,58 @@
         }
     }
 
-    // ===== FUNCIÓN PRINCIPAL: GENERAR PDF (MODIFICADA SOLO PARA GUARDAR EN FIREBASE) =====
+    // ===== NUEVA FUNCIÓN: Escuchar cambios en Firebase en TIEMPO REAL =====
+    function escucharFirebaseEnTiempoReal() {
+        db.collection("llamados")
+          .orderBy("fecha", "desc")
+          .onSnapshot((querySnapshot) => {
+              console.log("🔥 Datos actualizados desde Firebase!");
+              
+              // Convertir los datos de Firebase a un array
+              const firebaseData = [];
+              querySnapshot.forEach((doc) => {
+                  firebaseData.push({
+                      id: doc.id,
+                      ...doc.data()
+                  });
+              });
+              
+              // Fusionar con el historial local SIN perder los locales
+              // Primero, crear un Set con los códigos existentes
+              const codigosExistentes = new Set(historial.map(item => item.codigo));
+              
+              // Agregar solo los que no existen
+              firebaseData.forEach(item => {
+                  if (!codigosExistentes.has(item.codigo)) {
+                      historial.push(item);
+                      codigosExistentes.add(item.codigo);
+                  }
+              });
+              
+              // Ordenar por fecha (más reciente primero)
+              historial.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+              
+              // Guardar en localStorage y renderizar
+              localStorage.setItem('repcontver_historial', JSON.stringify(historial));
+              renderHistorial();
+              
+          }, (error) => {
+              console.log("Error escuchando Firebase:", error);
+          });
+    }
+
+    // ===== FUNCIÓN PARA GUARDAR EN FIREBASE =====
+    async function guardarEnFirebase(nuevoLlamado) {
+        try {
+            await db.collection("llamados").add(nuevoLlamado);
+            console.log("✅ Guardado en Firebase exitosamente");
+        } catch (error) {
+            console.log("❌ Error guardando en Firebase:", error);
+            alert("Error al guardar en la nube. El llamado solo estará disponible localmente.");
+        }
+    }
+
+    // ===== FUNCIÓN PRINCIPAL: GENERAR PDF =====
     function generarPDF(guardarEnHistorial = true) {
         if (!selectedWorker) { alert('Seleccione un trabajador'); return null; }
         if (!selectedSupervisor) { alert('Seleccione un supervisor'); return null; }
@@ -605,11 +614,11 @@
                 pdfBase64: pdfBase64
             };
             
-            // Guardar localmente (como siempre)
+            // Guardar localmente
             historial.push(nuevoLlamado);
             guardarHistorial();
             
-            // También guardar en Firebase (NUEVO)
+            // Guardar en Firebase
             guardarEnFirebase(nuevoLlamado);
         }
 
@@ -675,7 +684,7 @@
         link.click();
     }
 
-    // ========== EVENT LISTENERS (AGREGADA CARGA DE FIREBASE AL INICIAR) ==========
+    // ========== EVENT LISTENERS ==========
     document.addEventListener('DOMContentLoaded', function() {
         renderNomina();
         renderSupervisores();
@@ -685,8 +694,8 @@
         actualizarCodigo();
         updateDisplay();
         
-        // NUEVO: Cargar historial desde Firebase al iniciar
-        cargarHistorialDesdeFirebase();
+        // ===== NUEVO: Escuchar cambios en Firebase en tiempo real =====
+        escucharFirebaseEnTiempoReal();
 
         document.getElementById('btnAgregarNomina')?.addEventListener('click', () => {
             const nombre = document.getElementById('newNombre')?.value.trim();
