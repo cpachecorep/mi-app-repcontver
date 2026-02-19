@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REPCONTVER · Sistema de Llamados de Atención</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .app-container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: #0b2b4f;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px 15px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-img {
+            height: 60px;
+            width: auto;
+            background: white;
+            padding: 5px 15px;
+            border-radius: 10px;
+            object-fit: contain;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 500;
+        }
+
+        .header-badge {
+            background: #1e3f66;
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            border: 1px solid #3a5f88;
+        }
+
+        /* Layout principal */
+        .main-panel {
+            display: grid;
+            grid-template-columns: 350px 1fr 350px;
+            gap: 20px;
+        }
+
+        /* Paneles */
+        .left-panel, .center-panel, .right-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            height: fit-content;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #0b2b4f;
+            margin: 20px 0 15px 0;
+            padding-left: 10px;
+            border-left: 5px solid #ffb347;
+        }
+
+        .section-title:first-of-type {
+            margin-top: 0;
+        }
+
+        /* Listas */
+        .nomina-list, .supervisor-list, .sanciones-list, .articulos-container, .historial-list {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+        }
+
+        .nomina-item, .supervisor-item, .sancion-item, .articulo-item, .historial-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eaeaea;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .nomina-item:hover, .supervisor-item:hover, .sancion-item:hover, .articulo-item:hover, .historial-item:hover {
+            background: #e9ecef;
+        }
+
+        .nomina-item.selected, .supervisor-item.selected, .sancion-item.selected, .articulo-item.selected-articulo {
+            background: #d4e0f0;
+            border-left: 4px solid #ffb347;
+        }
+
+        .nomina-info, .supervisor-info, .sancion-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nomina-nombre, .supervisor-nombre, .sancion-nombre {
+            font-weight: 600;
+            color: #1e2f4a;
+        }
+
+        .nomina-cedula, .supervisor-cargo, .sancion-desc {
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .delete-nomina, .delete-supervisor, .delete-sancion, .delete-historial {
+            color: #999;
+            background: none;
+            border: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .delete-nomina:hover, .delete-supervisor:hover, .delete-sancion:hover, .delete-historial:hover {
+            color: #dc3545;
+        }
+
+        .historial-info {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .historial-fecha {
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .historial-nombre {
+            font-weight: 600;
+            color: #0b2b4f;
+        }
+
+        .historial-articulo {
+            font-size: 0.75rem;
+            color: #444;
+        }
+
+        .view-historial {
+            color: #0b2b4f;
+            background: none;
+            border: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .view-historial:hover {
+            color: #ffb347;
+        }
+
+        /* Formularios de agregar */
+        .add-nomina-form, .add-supervisor-form, .add-sancion-form {
+            background: #f0f4fa;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            background: white;
+            border-radius: 30px;
+            padding: 0 12px;
+            margin-bottom: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .input-group i {
+            color: #7c8ba0;
+            width: 25px;
+            font-size: 0.9rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px 0;
+            border: none;
+            outline: none;
+            font-size: 0.9rem;
+        }
+
+        /* Botones */
+        .btn-primary {
+            background: #0b2b4f;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 30px;
+            width: 100%;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #1a3f68;
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #0b2b4f;
+            border: 1px solid #ced4da;
+            padding: 8px 15px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        .btn-generate {
+            background: #ffb347;
+            color: #0b2b4f;
+            border: none;
+            padding: 15px;
+            border-radius: 30px;
+            width: 100%;
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            transition: background 0.2s;
+        }
+
+        .btn-generate:hover {
+            background: #ffa01c;
+        }
+
+        /* Artículos */
+        .articulo-ref {
+            font-weight: 700;
+            color: #0b2b4f;
+            font-size: 0.9rem;
+        }
+
+        .articulo-desc {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .articulo-gravedad {
+            font-size: 0.65rem;
+            background: #f0d9b4;
+            color: #7a5a2a;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* Panel central */
+        .form-row {
+            margin-bottom: 15px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #1e3b5a;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .readonly-info {
+            background: #f0f4fa;
+            border: 1px solid #d0dded;
+            border-radius: 30px;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            min-height: 45px;
+        }
+
+        .motivo-input {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 20px;
+            border: 1px solid #d0dded;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+
+        .field-card {
+            background: #f8fbff;
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid #d6e0ed;
+            margin: 15px 0;
+        }
+
+        .code-preview {
+            background: #e9ecef;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 1rem;
+            border: 1px dashed #0b2b4f;
+        }
+
+        .footer-note {
+            text-align: center;
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 15px;
+        }
+
+        .small-note {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .flex-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px 15px;
+            border-radius: 30px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .historial-stats {
+            background: #e9ecef;
+            border-radius: 20px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            text-align: center;
+            color: #0b2b4f;
+            font-weight: 600;
+        }
+
+        .logo-preview {
+            max-width: 100%;
+            max-height: 40px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <!-- HEADER CON LOGO -->
+    <div class="header">
+        <div class="logo-area">
+            <img src="https://media.licdn.com/dms/image/v2/C560BAQGk1rF968bP-w/company-logo_200_200/company-logo_200_200/0/1657038777307?e=2147483647&v=beta&t=HWDTxg7bjRaeocPoKxyofreFZy2HxqlheEdRpxIuDmg" 
+                 alt="REPCONTVER" 
+                 class="logo-img"
+                 id="headerLogo"
+                 crossorigin="anonymous">
+            <h1>· Actas Disciplinarias</h1>
+        </div>
+        <div class="header-badge">
+            <i class="fas fa-shield-alt"></i> BASC · Sistema de Gestión
+        </div>
+    </div>
+
+    <!-- PANEL PRINCIPAL DE 3 COLUMNAS -->
+    <div class="main-panel">
+        <!-- COLUMNA IZQUIERDA: TRABAJADORES Y SUPERVISORES -->
+        <div class="left-panel">
+            <!-- TRABAJADORES -->
+            <div class="section-title">
+                <i class="fas fa-users"></i> Trabajadores
+            </div>
+            <div class="nomina-list" id="nominaListContainer"></div>
+            
+            <div class="add-nomina-form">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="newNombre" placeholder="Nombre completo">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-id-card"></i>
+                    <input type="text" id="newCedula" placeholder="Cédula">
+                </div>
+                <button class="btn-primary" id="btnAgregarNomina">
+                    <i class="fas fa-plus-circle"></i> Agregar trabajador
+                </button>
+            </div>
+
+            <!-- SUPERVISORES -->
+            <div class="section-title">
+                <i class="fas fa-user-tie"></i> Supervisores
+            </div>
+            <div class="supervisor-list" id="supervisorListContainer"></div>
+            
+            <div class="add-supervisor-form">
+                <div class="input-group">
+                    <i class="fas fa-user-tie"></i>
+                    <input type="text" id="newSupNombre" placeholder="Nombre del supervisor">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-briefcase"></i>
+                    <input type="text" id="newSupCargo" placeholder="Cargo">
+                </div>
+                <button class="btn-primary" id="btnAgregarSupervisor">
+                    <i class="fas fa-plus-circle"></i> Agregar supervisor
+                </button>
+            </div>
+
+            <!-- SANCIONES (NUEVO) -->
+            <div class="section-title">
+                <i class="fas fa-exclamation-triangle"></i> Sanciones
+            </div>
+            <div class="sanciones-list" id="sancionesListContainer"></div>
+            
+            <div class="add-sancion-form">
+                <div class="input-group">
+                    <i class="fas fa-tag"></i>
+                    <input type="text" id="newSancionNombre" placeholder="Nombre de la sanción">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-align-left"></i>
+                    <input type="text" id="newSancionDesc" placeholder="Descripción">
+                </div>
+                <button class="btn-primary" id="btnAgregarSancion">
+                    <i class="fas fa-plus-circle"></i> Agregar sanción
+                </button>
+            </div>
+        </div>
+
+        <!-- COLUMNA CENTRAL: GENERADOR -->
+        <div class="center-panel">
+            <div class="section-title">
+                <i class="fas fa-file-signature"></i> Nuevo llamado de atención
+            </div>
+
+            <!-- TRABAJADOR SELECCIONADO -->
+            <div class="form-row">
+                <label><i class="fas fa-user"></i> Trabajador</label>
+                <div class="readonly-info" id="displaySelectedWorker">
+                    <i class="fas fa-user-check"></i>
+                    <span id="selectedWorkerText">Selecciona un trabajador</span>
+                </div>
+            </div>
+
+            <!-- SUPERVISOR SELECCIONADO -->
+            <div class="form-row">
+                <label><i class="fas fa-user-tie"></i> Supervisor</label>
+                <div class="readonly-info" id="displaySelectedSupervisor">
+                    <i class="fas fa-check-circle"></i>
+                    <span id="selectedSupervisorText">Selecciona un supervisor</span>
+                </div>
+            </div>
+
+            <!-- SANCIÓN SELECCIONADA (NUEVO) -->
+            <div class="form-row">
+                <label><i class="fas fa-exclamation-triangle"></i> Sanción</label>
+                <div class="readonly-info" id="displaySelectedSancion">
+                    <i class="fas fa-gavel"></i>
+                    <span id="selectedSancionText">Selecciona una sanción</span>
+                </div>
+            </div>
+
+            <!-- ARTÍCULO SELECCIONADO -->
+            <div class="form-row">
+                <label><i class="fas fa-book"></i> Artículo</label>
+                <div class="readonly-info" id="displaySelectedArticulo">
+                    <i class="fas fa-scale-balanced"></i>
+                    <span id="selectedArticuloText">Selecciona un artículo</span>
+                </div>
+            </div>
+
+            <!-- MOTIVO -->
+            <div class="form-row">
+                <label><i class="fas fa-pencil"></i> Motivo</label>
+                <textarea id="motivoField" rows="2" class="motivo-input" 
+                          placeholder="Describe los hechos..."></textarea>
+            </div>
+<!-- VISTA PREVIA DEL ESTILO PDF -->
+<div class="pdf-color-preview">
+    <i class="fas fa-palette"></i> PDF con diseño corporativo · Color azul REPCONTVER
+</div>
+            <!-- CÓDIGO Y GENERADOR -->
+            <div class="field-card">
+                <div class="flex-row" style="margin-bottom:15px;">
+                    <span><i class="fas fa-qrcode"></i> Código:</span>
+                    <span class="code-preview" id="codigoUnico">REP-20250218-001</span>
+                    <button class="btn-secondary" id="refreshCodigo">
+                        <i class="fas fa-rotate"></i> Nuevo
+                    </button>
+                </div>
+                
+                <button class="btn-generate" id="generarPdfBtn">
+                    <i class="fas fa-file-pdf"></i> GENERAR Y GUARDAR
+                </button>
+            </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: ARTÍCULOS E HISTORIAL -->
+        <div class="right-panel">
+            <!-- ARTÍCULOS CON BUSCADOR -->
+            <div class="section-title">
+                <i class="fas fa-gavel"></i> Artículos
+            </div>
+            <input type="text" id="buscarArticulo" class="search-box" placeholder="Buscar artículo...">
+            <div class="articulos-container" id="articulosContainer"></div>
+
+            <!-- HISTORIAL DE LLAMADOS -->
+            <div class="section-title">
+                <i class="fas fa-history"></i> Historial de llamados
+            </div>
+            <div class="historial-stats" id="historialStats">Total: 0 llamados</div>
+            <input type="text" id="buscarHistorial" class="search-box" placeholder="Buscar en historial...">
+            <div class="historial-list" id="historialContainer"></div>
+            <div style="display: flex; gap: 10px; <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+    <button class="btn-secondary" id="exportHistorialBtn" style="flex: 1;">
+        <i class="fas fa-download"></i> JSON
+    </button>
+    <button class="btn-secondary" id="exportExcelBtn" style="flex: 1; background: #28a745; color: white; border-color: #28a745;">
+        <i class="fas fa-file-excel"></i> EXCEL
+    </button>
+    <button class="btn-secondary" id="clearHistorialBtn" style="flex: 1;">
+        <i class="fas fa-trash"></i> Limpiar
+    </button>
+</div>
+
+<!-- SCRIPTS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/FileSaver@2.0.5/dist/FileSaver.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
