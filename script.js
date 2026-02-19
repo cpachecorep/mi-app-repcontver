@@ -399,43 +399,35 @@
 
     // ===== FUNCIÓN PRINCIPAL: GENERAR PDF (CORREGIDA) =====
     function generarPDF(guardarEnHistorial = true) {
-        // Verificar en consola qué está seleccionado
-        console.log("Verificando selección:");
-        console.log("Trabajador:", selectedWorker);
-        console.log("Supervisor:", selectedSupervisor);
-        console.log("Sanción:", selectedSancion);
-        console.log("Artículo:", selectedArticulo);
-        
-        // Validaciones INDIVIDUALES para saber qué falta
-        if (!selectedWorker) { 
-            alert('⚠️ Por favor seleccione un trabajador de la lista');
-            return null; 
-        }
-        if (!selectedSupervisor) { 
-            alert('⚠️ Por favor seleccione un supervisor de la lista');
-            return null; 
-        }
-        if (!selectedSancion) { 
-            alert('⚠️ Por favor seleccione una sanción de la lista');
-            return null; 
-        }
-        if (!selectedArticulo) { 
-            alert('⚠️ Por favor seleccione un artículo de la lista');
-            return null; 
-        }
+// Validaciones SILENCIOSAS - solo retorna null sin alertas
+    if (!selectedWorker) { 
+        console.log("No hay trabajador seleccionado - PDF no generado");
+        return null; 
+    }
+    if (!selectedSupervisor) { 
+        console.log("No hay supervisor seleccionado - PDF no generado");
+        return null; 
+    }
+    if (!selectedSancion) { 
+        console.log("No hay sanción seleccionada - PDF no generado");
+        return null; 
+    }
+    if (!selectedArticulo) { 
+        console.log("No hay artículo seleccionado - PDF no generado");
+        return null; 
+    }
 
-        console.log("✅ Todo seleccionado correctamente");
+    console.log("✅ Todo seleccionado, generando PDF...");
 
-        const motivo = document.getElementById('motivoField')?.value.trim() || 'Sin especificar';
-        const codigo = document.getElementById('codigoUnico')?.innerText || generarCodigo();
+    const motivo = document.getElementById('motivoField')?.value.trim() || 'Sin especificar';
+    const codigo = document.getElementById('codigoUnico')?.innerText || generarCodigo();
 
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
-        });
-
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+    });
         // Colores corporativos
         const azulOscuro = [11, 43, 79];
         const naranja = [255, 180, 71];
@@ -810,3 +802,4 @@
         });
     });
 })();
+
